@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "typecheck": "tsc --noEmit",
-    "test:wechat": "pwsh -NoProfile -File scripts/wechat-smoke.ps1"
+    "test:wechat": "pwsh -NoProfile -File scripts/wechat-smoke.ps1",
+    "build:cloud-validation": "node cloudfunctions/dayflowSync/build-validation.js",
+    "build:reminder-tick": "node cloudfunctions/dayflowReminders/build-tick.js"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

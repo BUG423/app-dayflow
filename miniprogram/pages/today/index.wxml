@@ -1,19 +1,18 @@
 <view class="page today">
   <view class="header">
     <view>
-      <view class="brand">DAYFLOW <text class="brand-dot">●</text></view>
-      <view class="page-title">把今天过好</view>
-      <view class="subtle">每一件小事，都在积累改变。</view>
+      <view class="page-title">今日安排</view>
+      <view class="subtle">按自己的节奏，做好眼前这一件。</view>
     </view>
-    <view class="today-jump" bindtap="onToday">今天</view>
+    <button class="today-jump" bindtap="onToday">今天</button>
   </view>
 
   <view class="calendar card">
     <view class="week-title">
       <text class="week-name">{{dayTitle}}</text>
       <view class="week-arrows">
-        <text class="week-arrow" data-delta="-1" bindtap="onShiftWeek">‹</text>
-        <text class="week-arrow" data-delta="1" bindtap="onShiftWeek">›</text>
+        <button class="week-arrow" data-delta="-1" bindtap="onShiftWeek" aria-label="上一周">‹</button>
+        <button class="week-arrow" data-delta="1" bindtap="onShiftWeek" aria-label="下一周">›</button>
       </view>
     </view>
     <view class="weekday-row">
@@ -35,6 +34,7 @@
     <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
     <view class="focus-bottom">{{percent}}% 任务已完成 · 稳稳向前</view>
   </view>
+  <view wx:if="{{reminderText}}" class="front-reminder">{{reminderText}}</view>
 
   <view class="section-bar">
     <text class="section-heading">日程时间轴</text>
@@ -56,14 +56,16 @@
           <text wx:if="{{block.kind !== 'fixed'}}" class="expand-arrow">{{block.expanded ? '⌃' : '⌄'}}</text>
           <text wx:else class="fixed-badge">固定</text>
         </view>
-        <view wx:if="{{block.stateText}}" class="active-badge">{{block.stateText}}</view>
+        <view wx:if="{{block.stateText}}" class="active-badge">{{block.stateText === '进行中' ? '当前时段' : block.stateText === '待开始' ? '稍后安排' : block.stateText}}</view>
         <view wx:if="{{block.expanded && block.kind !== 'fixed'}}" class="action-list">
           <view wx:for="{{block.actions}}" wx:for-item="action" wx:key="id" class="action-line">
-            <view class="check-button {{action.done ? 'checked' : ''}}" data-id="{{action.id}}" catchtap="onToggleTask">{{action.done ? '✓' : ''}}</view>
+            <view class="check-button {{action.done ? 'checked' : ''}}" data-id="{{action.id}}" catchtap="onToggleTask" aria-role="checkbox" aria-checked="{{action.done}}" aria-label="{{action.done ? '取消完成' : '标记完成'}} {{action.title}}">{{action.done ? '✓' : ''}}</view>
             <view class="action-content" data-id="{{action.id}}" catchtap="onToggleTask">
               <view class="action-title {{action.done ? 'action-done' : ''}}">{{action.title}}</view>
               <view class="action-time">{{action.start}}–{{action.end}} <text wx:if="{{action.dosage}}">· {{action.dosage}}</text></view>
+              <view class="task-status">{{action.statusText || '待开始'}}</view>
             </view>
+            <button class="task-menu" data-id="{{action.id}}" catchtap="onTaskMenu" aria-label="调整{{action.title}}的状态">状态</button>
           </view>
           <view wx:if="{{block.kind === 'sequence'}}" class="detail-link" data-id="{{block.id}}" catchtap="onOpenTraining">查看动作说明与训练详情 →</view>
         </view>
@@ -71,4 +73,13 @@
     </view>
   </view>
   <view class="safety-notice">温馨提示：{{notice}}</view>
+  <view wx:if="{{showDeferEditor}}" class="modal-mask">
+    <view class="modal-card">
+      <view class="modal-title">选择延期日期</view>
+      <view class="modal-subtitle">{{deferTargetTitle}}</view>
+      <view class="form-field"><label class="field-label">安排到哪一天</label><picker mode="date" value="{{deferDate}}" bindchange="onDeferDateChange"><view class="form-picker">{{deferDate}}　⌄</view></picker></view>
+      <view class="field-help">保存后仅标记延期，可到计划页一键安排目标日任务。</view>
+      <view class="button-row"><button class="button-primary" bindtap="onConfirmDefer">确认延期</button><button class="button-secondary" bindtap="onCancelDefer">取消</button></view>
+    </view>
+  </view>
 </view>

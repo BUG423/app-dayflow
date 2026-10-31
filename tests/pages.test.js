@@ -17,7 +17,7 @@ test('今日页面停留跨起止时间自动刷新，单分钟不重复渲染�
   runtime.setNow(new Date(2026, 9, 31, 12, 5));
   runtime.tick();
   assert.equal(page.data.heroCaption, '此刻正在进行');
-  assert.equal(page.data.blocks.find(block => block.id === 'music').stateText, '进行中');
+  assert.equal(page.data.blocks.find(block => block.id === 'music').stateText, '当前时段');
   runtime.setNow(new Date(2026, 9, 31, 12, 35));
   runtime.tick();
   assert.equal(page.data.heroCaption, '接下来');
@@ -113,5 +113,5 @@ test('训练详情拒绝非法日期和不存在的动作，不产生错误日�
   page.onLoad({ date: '2026-10-31', blockId: 'missing' });
   assert.equal(page.data.actions.length, 0);
   page.onToggleAction(event('missing'));
-  assert.equal(runtime.storage.size, 0);
+  assert.equal(runtime.storage.has('dayflow.records.v2'), false);
 });

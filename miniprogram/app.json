@@ -7,10 +7,10 @@
     "pages/profile/index"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#F8FAFC",
+    "navigationBarBackgroundColor": "#F6F8F8",
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "Dayflow",
-    "backgroundColor": "#F8FAFC",
+    "navigationBarTitleText": "日程流",
+    "backgroundColor": "#F6F8F8",
     "backgroundTextStyle": "light"
   },
   "tabBar": {

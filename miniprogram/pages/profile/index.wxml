@@ -1,15 +1,60 @@
 <view class="page profile">
-  <view class="eyebrow">PREFERENCES</view>
-  <view class="page-title">我的 Dayflow</view>
-  <view class="subtle">简单一点，每天前进一步。</view>
+  <view class="page-title">我的设置</view>
+  <view class="subtle">提醒、训练阶段和数据，都由你决定。</view>
   <view class="card info">
     <view class="row"><text>版本</text><text class="value">{{version}}</text></view>
     <view class="row"><text>数据存储</text><text class="value">{{storage}}</text></view>
   </view>
-  <view class="section-heading">数据管理</view>
-  <view class="card control" bindtap="onClearRecords">
-    <text>清除本地打卡记录</text><text class="arrow">›</text>
+
+  <view class="section-heading">提醒偏好</view>
+  <view class="card preferences-card">
+    <view class="row"><text>睡眠提醒</text><switch class="sleep-reminder" checked="{{preferences.sleepReminderEnabled}}" color="#28786E" bindchange="onSleepReminderChange" aria-label="睡眠提醒" /></view>
+    <view class="row"><text>准备睡觉的时间</text><picker mode="time" value="{{preferences.sleepTime}}" bindchange="onSleepTimeChange"><view class="time-setting">{{preferences.sleepTime}}　⌄</view></picker></view>
+    <view class="row"><text>任务开始提醒</text><switch class="task-reminder" checked="{{preferences.taskReminderEnabled}}" color="#28786E" bindchange="onTaskReminderChange" aria-label="任务开始提醒" /></view>
+    <view class="row"><text>提前提醒（分钟）</text><input class="minutes-setting" type="number" value="{{preferences.leadMinutes}}" bindchange="onLeadMinutesChange" maxlength="3" aria-label="任务提前提醒分钟数" /></view>
+    <view class="field-help">保存时间只代表你的偏好，后台通知还需要可用的订阅消息和你的授权。</view>
+    <button class="button-secondary subscription-button" disabled="{{reminderBusy}}" loading="{{reminderBusy}}" bindtap="onRequestSubscription">查看下一条提醒</button>
+    <view wx:if="{{reminderPreview}}" class="reminder-preview">
+      <view class="reminder-title">确认本次提醒</view>
+      <view class="reminder-name">{{reminderPreview.title}}</view>
+      <view class="reminder-time">{{reminderPreview.dateKey}} · {{reminderPreview.time}}</view>
+      <view class="field-help">请先核对日期和内容，再选择是否授权。</view>
+      <button class="button-primary confirm-reminder" disabled="{{reminderBusy}}" loading="{{reminderBusy}}" bindtap="onConfirmReminderSubscription">确认并订阅本次提醒</button>
+    </view>
+    <view class="reminder-jobs-heading"><text>已登记的提醒</text><button class="refresh-reminders" disabled="{{reminderBusy}}" bindtap="onRefreshReminderJobs">刷新</button></view>
+    <view wx:if="{{!reminderJobs.length}}" class="field-help">暂无可显示的已登记提醒。</view>
+    <view wx:for="{{reminderJobs}}" wx:key="id" class="reminder-job">
+      <view class="reminder-name">{{item.title}}</view>
+      <view class="reminder-time">{{item.dateKey}} · {{item.time}}</view>
+      <view class="reminder-job-status"><text>{{item.statusText}}</text><button wx:if="{{item.canCancel}}" class="cancel-reminder" disabled="{{reminderBusy}}" data-id="{{item.id}}" bindtap="onCancelReminder">取消这条提醒</button></view>
+    </view>
+    <view class="field-help reminder-limit">仅登记本次提醒；前台开关不会取消已登记提醒；修改日程后需取消并重新登记。</view>
   </view>
-  <view class="hint">当前为本地演示版本，不提供账号同步。请勿将个人敏感资料上传至公开代码仓库。</view>
-  <view class="hint">未来版本将开放时间设置、模板导入、照片打卡和云端同步。</view>
+
+  <view class="section-heading">训练阶段</view>
+  <view class="card phase-card">
+    <view class="row"><text>当前阶段</text><button class="phase-setting" bindtap="onChoosePhase">{{preferences.trainingPhase || '基础'}}　⌄</button></view>
+    <view class="field-help">参考次数仅作提示，阶段由你自行选择，不会强制解锁或要求完成。</view>
+    <view wx:for="{{phaseRuleDrafts}}" wx:key="id" class="phase-rule">
+      <view class="phase-name">{{item.name}}</view>
+      <view class="form-field"><label class="field-label">参考执行次数</label><input class="form-input" type="number" value="{{item.minSessions}}" data-id="{{item.id}}" data-field="minSessions" bindinput="onPhaseRuleChange" maxlength="5" /></view>
+      <view class="form-field"><label class="field-label">阶段说明</label><textarea class="form-textarea" value="{{item.description}}" data-id="{{item.id}}" data-field="description" bindinput="onPhaseRuleChange" maxlength="240" placeholder="按自己的节奏设置阶段目标" /></view>
+    </view>
+    <button class="button-secondary save-phase-rules" bindtap="onSavePhaseRules">保存阶段规则</button>
+    <view class="field-help">出现不适时可停止或降低强度，并请专业人员审核。</view>
+  </view>
+
+  <view class="section-heading">数据同步</view>
+  <view class="card sync-card">
+    <view class="row"><text>云端同步</text><switch class="sync-switch" checked="{{sync.enabled}}" disabled="{{!sync.configured}}" color="#28786E" bindchange="onToggleSync" aria-label="云端同步" /></view>
+    <view class="sync-state">{{sync.configured ? syncText : '尚未连接云端'}}</view>
+    <view class="field-help">{{sync.configured ? '开启前会征求你的同意。同步记录只属于你自己的账户。' : '目前可以继续使用本机记录，云端连接就绪后再选择是否开启。'}}</view>
+    <button wx:if="{{sync.configured && sync.enabled}}" class="button-secondary sync-now" loading="{{sync.pending}}" disabled="{{sync.pending}}" bindtap="onSyncNow">立即同步</button>
+    <view wx:if="{{sync.conflict}}" class="conflict-notice"><view>发现两份不同的记录，已为你保留副本。</view><button class="button-secondary" bindtap="onResolveConflict">选择要保留的内容</button></view>
+  </view>
+
+  <view wx:if="{{feedbackText}}" class="feedback-message">{{feedbackText}}</view>
+  <view class="section-heading">数据管理</view>
+  <view class="card control" bindtap="onClearRecords" aria-role="button" aria-label="清除本地打卡记录"><text>清除本地打卡记录</text><text class="arrow">›</text></view>
+  <view class="hint">清除前会再次确认，本机打卡状态清除后无法恢复。移除照片关联不会删除来源相册或云端照片。</view>
 </view>

@@ -8,6 +8,11 @@ param(
   [ValidateSet('Validate', 'Poll', 'Restore')][string]$Mode = 'Validate',
   [string]$RunDirectory
 )
+if ($Mode -eq 'Validate') {
+  # New modules write multiple storage keys; always use the complete backup flow.
+  & (Join-Path $PSScriptRoot 'wechat-iteration.ps1') -Project $Project -WechatIde $WechatIde -Mode Validate -RunDirectory $RunDirectory
+  exit $LASTEXITCODE
+}
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $script:Project = (Resolve-Path -LiteralPath $Project).Path

@@ -1,20 +1,99 @@
 <view class="page plans">
-  <view class="eyebrow">MY WEEK</view>
-  <view class="page-title">一周计划</view>
-  <view class="subtle">按照自己的节奏，稳步执行。</view>
-  <view class="notice card">
-    <view class="notice-title">当前使用演示模板</view>
-    <view class="notice-body">已预置工作时间、吉他与声乐、每日运动及睡眠安排。个性化时间编辑、批量导入和计划版本管理将在后续版本开放。</view>
+  <view class="page-title">每周计划</view>
+  <view class="subtle">把重复的安排设好，给每天留出余地。</view>
+  <view class="button-row plan-toolbar">
+    <button class="button-primary create-schedule" bindtap="onCreateSchedule">添加安排</button>
+    <button class="button-secondary" bindtap="onToggleImport">导入或导出</button>
   </view>
+  <view wx:if="{{errorMessage}}" class="form-error">{{errorMessage}}</view>
+
+  <view wx:if="{{editorVisible}}" class="card editor" id="schedule-editor">
+    <view class="editor-heading"><text class="editor-title">{{editingId ? '修改安排' : '添加安排'}}</text><button class="close-editor" bindtap="onCloseEditor" aria-label="关闭安排编辑">关闭</button></view>
+    <view class="form-field"><label class="field-label">重复规则名称</label><input class="form-input" value="{{scheduleTitle}}" data-field="scheduleTitle" bindinput="onEditorInput" maxlength="60" placeholder="例如：工作日安排" /></view>
+    <view class="form-field"><label class="field-label">正在编辑的时间块</label><picker range="{{blockOptions}}" range-key="label" value="{{editingBlockIndex}}" bindchange="onEditorBlockChange"><view class="form-picker">{{blockOptions[editingBlockIndex].label || '当前时间块'}}　⌄</view></picker></view>
+    <view class="button-row"><button class="button-secondary" bindtap="onAddEditorBlock">添加时间块</button><button class="button-secondary danger-text" disabled="{{blockOptions.length <= 1}}" bindtap="onRemoveEditorBlock">删除当前时间块</button></view>
+    <view class="form-field"><label class="field-label">时间块名称</label><input class="form-input" value="{{title}}" data-field="title" bindinput="onEditorInput" maxlength="60" placeholder="例如：午间练习" /></view>
+    <view class="form-field"><label class="field-label">安排类型</label><picker range="{{kindOptions}}" value="{{kindIndex}}" bindchange="onKindChange"><view class="form-picker">{{kindOptions[kindIndex]}}　⌄</view></picker></view>
+    <view class="field-help">固定占用只展示时间，不参与打卡。并行任务可分别完成，顺序执行按步骤安排。</view>
+    <view class="form-grid">
+      <view class="form-field"><label class="field-label">开始时间</label><picker mode="time" value="{{start}}" data-field="start" bindchange="onEditorInput"><view class="form-picker">{{start}}　⌄</view></picker></view>
+      <view class="form-field"><label class="field-label">结束时间</label><picker mode="time" value="{{end}}" data-field="end" bindchange="onEditorInput"><view class="form-picker">{{end}}　⌄</view></picker></view>
+    </view>
+    <view class="form-field"><label class="field-label">分类</label><input class="form-input" value="{{category}}" data-field="category" bindinput="onEditorInput" maxlength="20" placeholder="例如：工作、兴趣、训练" /></view>
+    <view class="form-field"><label class="field-label">每周重复</label><view class="repeat-days"><button wx:for="{{weekdayOptions}}" wx:key="value" class="repeat-day {{item.selected ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="onToggleWeekday">{{item.label}}</button></view></view>
+    <view class="form-grid">
+      <view class="form-field"><label class="field-label">生效日期</label><picker mode="date" value="{{effectiveFrom}}" data-field="effectiveFrom" bindchange="onEditorInput"><view class="form-picker">{{effectiveFrom}}　⌄</view></picker></view>
+      <view class="form-field"><label class="field-label">结束日期（可不填）</label><input class="form-input" value="{{effectiveTo}}" data-field="effectiveTo" bindinput="onEditorInput" placeholder="例如：2026-12-31" maxlength="10" /></view>
+    </view>
+
+    <view class="form-field"><label class="field-label">某一天的特别安排</label><picker range="{{exceptionModes}}" value="{{exceptionModeIndex}}" bindchange="onExceptionModeChange"><view class="form-picker">{{exceptionModes[exceptionModeIndex]}}　⌄</view></picker></view>
+    <view wx:if="{{exceptionModeIndex === 1}}" class="field-help">将当前编辑的时间块用于所选日期，其他日期保留原来的重复安排。</view>
+    <view class="form-field"><view class="exception-add"><picker mode="date" value="{{exceptionDate}}" bindchange="onExceptionDateInput"><view class="form-picker">{{exceptionDate || '选择日期'}}　⌄</view></picker><button class="button-secondary" bindtap="onAddException">添加</button></view></view>
+    <view wx:for="{{exceptions}}" wx:key="date" class="exception-row"><text>{{item.date}} · {{item.kind === 'replace' ? '特别安排' : '不安排'}}</text><button class="inline-button" data-index="{{index}}" bindtap="onRemoveException">移除</button></view>
+
+    <view wx:if="{{kindIndex !== 0}}" class="task-editor">
+      <view class="section-heading">{{kindIndex === 1 ? '并行任务' : '执行步骤'}}</view>
+      <view class="field-help">{{kindIndex === 1 ? '每个任务都可独立打卡。' : '各步骤的时间须在安排内，且顺序不能重叠。'}}</view>
+      <view wx:for="{{actionRows}}" wx:for-item="action" wx:for-index="actionIndex" wx:key="id" class="action-editor">
+        <view class="action-editor-heading"><text>第{{actionIndex + 1}}项</text><button class="inline-button danger-text" data-index="{{actionIndex}}" bindtap="onRemoveAction">删除此项</button></view>
+        <view class="form-field"><label class="field-label">名称</label><input class="form-input" value="{{action.title}}" data-index="{{actionIndex}}" data-field="title" bindinput="onActionInput" maxlength="80" placeholder="填写任务或步骤名称" /></view>
+        <view class="form-grid">
+          <view class="form-field"><label class="field-label">开始</label><picker mode="time" value="{{action.start}}" data-index="{{actionIndex}}" data-field="start" bindchange="onActionInput"><view class="form-picker">{{action.start}}　⌄</view></picker></view>
+          <view class="form-field"><label class="field-label">结束</label><picker mode="time" value="{{action.end}}" data-index="{{actionIndex}}" data-field="end" bindchange="onActionInput"><view class="form-picker">{{action.end}}　⌄</view></picker></view>
+        </view>
+        <view class="form-field"><label class="field-label">组数、次数或时长（可不填）</label><input class="form-input" value="{{action.dosage}}" data-index="{{actionIndex}}" data-field="dosage" bindinput="onActionInput" maxlength="100" placeholder="例如：3组，每组10次" /></view>
+        <view class="form-field"><label class="field-label">执行说明（可不填）</label><textarea class="form-textarea" value="{{action.description}}" data-index="{{actionIndex}}" data-field="description" bindinput="onActionInput" maxlength="1000" placeholder="记下执行方法或练习目标" /></view>
+        <view class="form-field"><label class="field-label">器材（可不填）</label><input class="form-input" value="{{action.equipment}}" data-index="{{actionIndex}}" data-field="equipment" bindinput="onActionInput" maxlength="100" placeholder="例如：弹力带、稳固座椅" /></view>
+        <view class="form-field"><label class="field-label">示范检索词（可不填）</label><input class="form-input" value="{{action.searchKeyword}}" data-index="{{actionIndex}}" data-field="searchKeyword" bindinput="onActionInput" maxlength="100" placeholder="便于查找动作示范的中文关键词" /></view>
+        <view class="form-field"><label class="field-label">注意事项（可不填）</label><textarea class="form-textarea short-textarea" value="{{action.safety}}" data-index="{{actionIndex}}" data-field="safety" bindinput="onActionInput" maxlength="500" placeholder="记下适用条件、停止或调整的提示" /></view>
+      </view>
+      <button class="button-secondary add-action" bindtap="onAddAction">{{kindIndex === 1 ? '添加任务' : '添加步骤'}}</button>
+    </view>
+    <view class="notice-text editor-notice">已有执行记录的日期保留当时计划，请调整尚未执行的日期。运动内容请按自身情况调整，必要时咨询专业人员。</view>
+    <view class="button-row"><button class="button-primary save-schedule" bindtap="onSaveSchedule">保存安排</button><button class="button-secondary" bindtap="onCloseEditor">取消</button></view>
+  </view>
+
+  <view wx:if="{{importVisible}}" class="card import-panel">
+    <view class="editor-title">导入或导出计划</view>
+    <view class="field-help">粘贴标准模板内容，先查看校验结果，再确认导入。</view>
+    <textarea class="form-textarea import-content" value="{{importText}}" bindinput="onImportInput" maxlength="262145" placeholder="在这里粘贴模板内容" />
+    <view class="button-row"><button class="button-primary preview-import" bindtap="onPreviewImport">校验并预览</button><button class="button-secondary" bindtap="onExportTemplate">复制当前模板</button></view>
+    <view wx:if="{{importPreview}}" class="import-preview">
+      <view wx:if="{{importPreview.ok}}" class="preview-success">校验通过</view>
+      <view wx:else class="danger-text">请先修正以下问题</view>
+      <view wx:if="{{importPreview.ok}}" class="preview-summary">{{importPreview.summary.schedules}}条重复规则 · {{importPreview.summary.blocks}}个时间块 · {{importPreview.summary.tasks}}项任务 · {{importPreview.summary.actions}}个步骤</view>
+      <view wx:for="{{importPreview.errors}}" wx:key="*this" class="preview-error">{{item}}</view>
+      <view wx:for="{{importPreview.warnings}}" wx:key="*this" class="preview-warning">{{item}}</view>
+      <view wx:if="{{importPreview.ok}}" class="field-help">确认后更新尚未执行的安排，已有历史记录保留。</view>
+      <button class="button-primary confirm-import" disabled="{{!importPreview.ok}}" bindtap="onConfirmImport">确认导入</button>
+    </view>
+  </view>
+
+  <view class="section-heading">重复安排 <text class="version-label">第{{templateVersion || 1}}版</text></view>
+  <view wx:if="{{!schedules.length}}" class="card empty-state">还没有重复安排。添加一项，从今天开始。</view>
+  <view wx:for="{{schedules}}" wx:key="id" class="card schedule-card">
+    <view class="schedule-title">{{item.title}}</view>
+    <view class="schedule-meta">{{item.weekLabel}}</view>
+    <view class="schedule-meta">{{item.blockLabel}}</view>
+    <view class="schedule-meta">{{item.effectiveLabel}}</view>
+    <view class="button-row"><button class="button-secondary schedule-edit" data-id="{{item.id}}" bindtap="onEditSchedule">修改</button><button class="button-secondary schedule-delete danger-text" data-id="{{item.id}}" bindtap="onDeleteSchedule">删除</button></view>
+  </view>
+
+  <view wx:if="{{deferredItems.length}}" class="section-heading">待重新安排</view>
+  <view wx:for="{{deferredItems}}" wx:key="recordKey" class="card deferred-item">
+    <view class="schedule-title">{{item.title}}</view>
+    <view class="schedule-meta">原日期：{{item.date}} · 延期至：{{item.deferredTo}}</view>
+    <button class="button-secondary deferred-schedule" data-date="{{item.date}}" data-id="{{item.targetId}}" data-target-date="{{item.deferredTo}}" bindtap="onScheduleDeferred">安排到目标日期</button>
+  </view>
+
+  <view wx:if="{{versions.length}}" class="section-heading">计划版本</view>
+  <view wx:if="{{versions.length}}" class="card version-history"><view wx:for="{{versions}}" wx:key="version" class="version-row"><view class="version-info"><view>{{item.label}}</view><view class="version-time">{{item.updatedLabel}}</view></view><text wx:if="{{item.isCurrent}}" class="current-version">当前使用</text><button wx:else class="restore-version" data-version="{{item.version}}" bindtap="onRestoreVersion">恢复为新版本</button></view></view>
+
   <view class="section-heading">本周训练安排</view>
   <view wx:for="{{days}}" wx:key="date" class="day-card card {{item.selected ? 'selected' : ''}}">
-    <view class="day-head">
-      <text class="weekday">{{item.weekday}}</text>
-      <text class="date">{{item.date}}</text>
-      <text wx:if="{{item.selected}}" class="today-tag">今天</text>
-    </view>
+    <view class="day-head"><text class="weekday">{{item.weekday}}</text><text class="date">{{item.date}}</text><text wx:if="{{item.selected}}" class="today-tag">今天</text></view>
     <view class="day-title">{{item.title}}</view>
-    <view class="day-meta">{{item.minutes}} · {{item.actionCount}} 个步骤</view>
+    <view class="day-meta">{{item.minutes}} · {{item.actionCount}}个步骤</view>
   </view>
   <button class="go-today" bindtap="onViewToday">打开今日时间轴</button>
 </view>
