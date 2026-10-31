@@ -1,8 +1,9 @@
 import { getWeekdayName } from '../../data/template';
-import { localDateKey, weekDays } from '../../utils/calendar';
-import { getTemplate, getDayBlocks, getTemplateVersions, saveTemplate, saveSchedule, deleteSchedule, previewImport, importTemplate, exportTemplate, scheduleDeferredTarget } from '../../services/plans';
+import { localDateKey, weekDays, shiftDays, parseLocalDate } from '../../utils/calendar';
+import { getTemplate, getDayBlocks, getTemplateVersions, getDateEditState, saveTemplate, saveSchedule, deleteSchedule, previewImport, importTemplate, exportTemplate, exportDefaultTemplate, scheduleDeferredTarget } from '../../services/plans';
 import { getHistory } from '../../services/records';
 import { Action, Schedule, TimeBlock } from '../../types/domain';
+import { isSimpleBlock, repeatMode, repeatWeekdays, simpleBlock } from '../../utils/plan-editor';
 
 const weekdays = [1,2,3,4,5,6,0];
 const labels = ['周日','周一','周二','周三','周四','周五','周六'];
@@ -23,13 +24,15 @@ Page({
   originalBlocks: [] as TimeBlock[],
   data: {
     days: [] as any[], today: '', showNotice: true, schedules: [] as any[], templateVersion: 1,
-    versions: [] as any[], deferredItems: [] as any[], errorMessage: '',
+    versions: [] as any[], deferredItems: [] as any[], errorMessage: '', dateSelectionHint: '', saveNotice: '',
     editorVisible: false, editingId: '', scheduleTitle: '', title: '', start: '18:30', end: '19:00', category: '自定义',
     effectiveFrom: '', effectiveTo: '', selectedWeekdays: [] as number[], weekdayOptions: [] as any[],
     kindIndex: 1, kindOptions: ['固定占用','并行任务','顺序执行'], actionRows: [] as any[],
     editingBlockIndex: 0, blockOptions: [] as any[], exceptionDate: '', exceptions: [] as any[],
     exceptionModeIndex: 0, exceptionModes: ['跳过当天','当天替换'],
-    importVisible: false, importText: '', importPreview: null as any
+    importVisible: false, importText: '', importPreview: null as any, examplePreview: false, exampleRows: [] as any[]
+    , advancedVisible: false, toolsVisible: false, versionsVisible: false, trainingVisible: false,
+    simpleMode: true, repeatModeIndex: 0, repeatOptions: ['仅当天','每天','工作日','自选星期']
   },
   onShow() { this.refresh(); },
   fail(error: any) { const message = error && error.message || '操作失败，请稍后重试'; this.setData({ errorMessage: message }); wx.showToast({ title: message, icon: 'none' }); },
@@ -41,7 +44,7 @@ Page({
         return { date: day.date, weekday: getWeekdayName(day.date), title: training ? training.title : '自主安排', minutes: training ? training.start + '–' + training.end : '', actionCount: training ? training.actions.length : 0, selected: today === day.date };
       });
       const schedules = template.schedules.map(schedule => ({ id: schedule.id, title: schedule.title,
-        weekLabel: weekdays.filter(day => schedule.weekdays.includes(day)).map(day => labels[day]).join('、') || '按例外日期生效',
+        weekLabel: schedule.effectiveTo === schedule.effectiveFrom ? '仅这一天' : weekdays.filter(day => schedule.weekdays.includes(day)).map(day => labels[day]).join('、') || '按例外日期生效',
         effectiveLabel: schedule.effectiveFrom + (schedule.effectiveTo ? ' 至 ' + schedule.effectiveTo : ' 起'),
         blockLabel: schedule.blocks.map(block => block.start + '–' + block.end + ' ' + block.title).join('；') }));
       const versions = getTemplateVersions().map(item => ({ version: item.version, label: '第' + item.version + '版', updatedLabel: item.updatedAt ? localDateKey(new Date(item.updatedAt)) : '内置示例', isCurrent: item.version === template.version }));
@@ -62,6 +65,7 @@ Page({
   },
   collectBlock(): TimeBlock {
     const old = this.draftSchedule.blocks[this.data.editingBlockIndex];
+    if (this.data.simpleMode && !this.data.advancedVisible) return simpleBlock(old, { title: this.data.title, start: this.data.start, end: this.data.end, category: this.data.category, checkable: this.data.kindIndex !== 0 }, old.tasks[0]?.id || newId('task'));
     if (kinds[this.data.kindIndex] !== old.kind && old.tasks.some(task => task.origin)) throw new Error('延期安排需保留来源关联，不能切换执行方式；可以另建日程');
     const block: TimeBlock = { id: old.id, title: this.data.title.trim(), start: this.data.start, end: this.data.end, kind: kinds[this.data.kindIndex] as any, category: this.data.category.trim() || '自定义', tasks: [] };
     const rows = this.data.actionRows.map((row: any) => ({ id: row.id, title: row.title.trim(), start: row.start, end: row.end, ...optionalFields(row) }));
@@ -88,14 +92,45 @@ Page({
   openEditor(schedule: Schedule, existing: boolean) {
     this.draftExpectedVersion = this.data.templateVersion;
     this.draftSchedule = clone(schedule); this.originalBlocks = clone(schedule.blocks);
-    this.setData({ editorVisible: true, editingId: existing ? schedule.id : '', scheduleTitle: schedule.title, effectiveFrom: schedule.effectiveFrom, effectiveTo: schedule.effectiveTo || '', exceptions: clone(schedule.exceptions), exceptionDate: '', exceptionModeIndex: 0, errorMessage: '' });
+    const simple = schedule.blocks.length === 1 && isSimpleBlock(schedule.blocks[0]);
+    this.setData({ editorVisible: true, editingId: existing ? schedule.id : '', scheduleTitle: schedule.title, effectiveFrom: schedule.effectiveFrom, effectiveTo: schedule.effectiveTo || '', exceptions: clone(schedule.exceptions), exceptionDate: '', exceptionModeIndex: 0, errorMessage: '', dateSelectionHint: '', saveNotice: '', simpleMode: simple, advancedVisible: !simple, repeatModeIndex: repeatMode(schedule) });
     this.updateWeekdays(schedule.weekdays); this.showBlock(0);
     if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: '#schedule-editor', duration: 200 });
   },
-  onCreateSchedule() { const date = this.data.today || localDateKey(new Date()); this.openEditor({ id: newId('schedule'), title: '', weekdays: [new Date().getDay()], effectiveFrom: date, exceptions: [], blocks: [blankBlock()] }, false); },
+  onCreateSchedule() {
+    try {
+      const today = localDateKey(new Date()); let date = today, hint = '';
+      if (getDateEditState(today).locked) {
+        let available = '';
+        for (let offset = 1; offset <= 7; offset++) { const candidate = shiftDays(today, offset); if (!getDateEditState(candidate).locked) { available = candidate; break; } }
+        if (available) { date = available; hint = '今天已有执行记录，保留原计划；已为你选择' + (date === shiftDays(today, 1) ? '明天（' + date + '）' : date) + '，也可以改选其他未执行日期。'; }
+        else hint = '今天及未来七天已有执行记录，请自行选择其他尚未执行的日期。';
+      }
+      this.openEditor({ id: newId('schedule'), title: '', weekdays: repeatWeekdays(0, date, []), effectiveFrom: date, effectiveTo: date, exceptions: [], blocks: [blankBlock()] }, false);
+      this.setData({ dateSelectionHint: hint });
+    } catch (error) { this.fail(error); }
+  },
   onEditSchedule(e: any) { try { const schedule = getTemplate().schedules.find(item => item.id === String(e.currentTarget.dataset.id)); if (!schedule) throw new Error('未找到日程规则'); this.openEditor(schedule, true); } catch (error) { this.fail(error); } },
   onCloseEditor() { this.draftSchedule = null; this.setData({ editorVisible: false }); },
-  onEditorInput(e: any) { const field = String(e.currentTarget.dataset.field); if (['scheduleTitle','title','start','end','category','effectiveFrom','effectiveTo'].includes(field)) this.setData({ [field]: String(e.detail.value) }); },
+  onEditorInput(e: any) { const field = String(e.currentTarget.dataset.field); if (['scheduleTitle','title','start','end','category','effectiveFrom','effectiveTo'].includes(field)) {
+    const value = String(e.detail.value); this.setData({ [field]: value, ...(field === 'effectiveFrom' ? { dateSelectionHint: '' } : {}) });
+    if (field === 'effectiveFrom' && this.data.repeatModeIndex === 0) { try { this.updateWeekdays(repeatWeekdays(0, value, [])); this.setData({ effectiveTo: value }); } catch (_err) {} }
+  } },
+  onRepeatModeChange(e: any) {
+    const index = Number(e.detail.value); if (!Number.isInteger(index) || index < 0 || index > 3) return;
+    try { this.updateWeekdays(repeatWeekdays(index, this.data.effectiveFrom, this.data.selectedWeekdays)); this.setData({ repeatModeIndex: index, effectiveTo: index === 0 ? this.data.effectiveFrom : '' }); } catch (error) { this.fail(error); }
+  },
+  onCheckableChange(e: any) { if (this.data.simpleMode) this.setData({ kindIndex: e.detail.value ? 1 : 0 }); },
+  onToggleAdvanced() {
+    if (!this.draftSchedule) return;
+    try {
+      this.storeBlock(); const simple = this.draftSchedule.blocks.length === 1 && isSimpleBlock(this.draftSchedule.blocks[0]);
+      this.setData({ advancedVisible: !this.data.advancedVisible, simpleMode: simple }); this.showBlock(this.data.editingBlockIndex);
+    } catch (error) { this.fail(error); }
+  },
+  onToggleTools() { this.setData({ toolsVisible: !this.data.toolsVisible }); },
+  onToggleVersions() { this.setData({ versionsVisible: !this.data.versionsVisible }); },
+  onToggleTraining() { this.setData({ trainingVisible: !this.data.trainingVisible }); },
   onKindChange(e: any) { const index = Number(e.detail.value); if (this.draftSchedule && kinds[index] !== this.draftSchedule.blocks[this.data.editingBlockIndex].kind && this.draftSchedule.blocks[this.data.editingBlockIndex].tasks.some(task => task.origin)) { this.fail(new Error('延期安排需保留来源关联，不能切换执行方式')); return; } if (index >= 0 && index < kinds.length) this.setData({ kindIndex: index }); },
   onToggleWeekday(e: any) { const value = Number(e.currentTarget.dataset.value); if (!weekdays.includes(value)) return; const selected = this.data.selectedWeekdays.includes(value) ? this.data.selectedWeekdays.filter(day => day !== value) : this.data.selectedWeekdays.concat(value); this.updateWeekdays(selected); },
   onAddAction() { this.setData({ actionRows: this.data.actionRows.concat({ id: newId('item'), title: '', start: this.data.start, end: this.data.end, dosage: '', description: '', equipment: '', searchKeyword: '', safety: '' }) }); },
@@ -121,24 +156,45 @@ Page({
     try {
       if (!this.draftSchedule) return;
       this.storeBlock(); const schedule = clone(this.draftSchedule);
-      schedule.title = this.data.scheduleTitle.trim(); schedule.weekdays = this.data.selectedWeekdays; schedule.effectiveFrom = this.data.effectiveFrom;
+      const groupTitle = this.data.scheduleTitle.trim();
+      const followsSingleName = this.originalBlocks.length === 1 && isSimpleBlock(this.originalBlocks[0])
+        && schedule.blocks.length === 1 && isSimpleBlock(schedule.blocks[0])
+        && this.draftSchedule.title === this.originalBlocks[0].title && groupTitle === this.draftSchedule.title;
+      schedule.title = followsSingleName ? schedule.blocks[0].title.trim() : groupTitle || schedule.blocks[0].title.trim();
+      schedule.weekdays = this.data.selectedWeekdays; schedule.effectiveFrom = this.data.effectiveFrom;
       if (this.data.effectiveTo) schedule.effectiveTo = this.data.effectiveTo; else delete schedule.effectiveTo;
       schedule.exceptions = clone(this.data.exceptions);
       if (!schedule.weekdays.length && !schedule.exceptions.some(item => item.kind === 'replace')) throw new Error('请选择重复星期，或添加当天替换例外');
-      saveSchedule(schedule, this.draftExpectedVersion); this.onCloseEditor(); this.refresh(); wx.showToast({ title: '计划已保存', icon: 'success' });
+      if (schedule.effectiveTo === schedule.effectiveFrom && getDateEditState(schedule.effectiveFrom).locked) throw new Error('这一天已有执行记录或属于历史日期，原计划会保留。请选择尚未执行的日期后再保存。');
+      const today = localDateKey(new Date()), exception = schedule.exceptions.find(item => item.date === today);
+      const appliesToday = schedule.effectiveFrom <= today && (!schedule.effectiveTo || schedule.effectiveTo >= today)
+        && (exception ? exception.kind === 'replace' : schedule.weekdays.includes(parseLocalDate(today).getDay()));
+      const keepsToday = appliesToday && getDateEditState(today).locked;
+      saveSchedule(schedule, this.draftExpectedVersion); this.onCloseEditor(); this.refresh();
+      this.setData({ saveNotice: keepsToday ? '未来安排已保存；今天已有执行记录，继续保留原计划。' : '' });
+      wx.showToast({ title: keepsToday ? '未来安排已保存' : '计划已保存', icon: keepsToday ? 'none' : 'success' });
     } catch (error) { this.fail(error); }
   },
   onDeleteSchedule(e: any) {
     const id = String(e.currentTarget.dataset.id), version = this.data.templateVersion;
     wx.showModal({ title: '删除这条日程规则？', content: '未来安排将移除，已有执行历史和锁定快照会保留。', confirmText: '确认删除', success: result => { if (!result.confirm) return; try { deleteSchedule(id, version); this.refresh(); wx.showToast({ title: '已删除规则', icon: 'success' }); } catch (error) { this.fail(error); } } });
   },
-  onToggleImport() { this.setData({ importVisible: !this.data.importVisible, importPreview: null }); },
-  onImportInput(e: any) { this.setData({ importText: String(e.detail.value), importPreview: null }); },
+  onToggleImport() { this.setData({ importVisible: this.data.examplePreview || !this.data.importVisible, importPreview: null, examplePreview: false }); },
+  onPreviewExample() {
+    try {
+      const text = exportDefaultTemplate(), preview = previewImport(text);
+      if (!preview.ok) throw new Error('示例计划暂时无法预览');
+      const rows = preview.template.schedules.map(schedule => ({ id: schedule.id, title: schedule.title,
+        blocks: schedule.blocks.map(block => ({ id: block.id, title: block.title, time: block.start + '–' + block.end, label: block.kind === 'fixed' ? '占用时间' : '可打卡' })) }));
+      this.setData({ toolsVisible: true, importVisible: true, examplePreview: true, importText: text, importPreview: preview, exampleRows: rows });
+    } catch (error) { this.fail(error); }
+  },
+  onImportInput(e: any) { this.setData({ importText: String(e.detail.value), importPreview: null, examplePreview: false }); },
   onPreviewImport() { this.setData({ importPreview: previewImport(this.data.importText) }); },
   onConfirmImport() {
     const preview = previewImport(this.data.importText); this.setData({ importPreview: preview }); if (!preview.ok) return;
     const text = this.data.importText, version = this.data.templateVersion;
-    wx.showModal({ title: '确认导入计划？', content: '将保存为新的计划版本。已有执行记录和锁定历史不会被覆盖。', confirmText: '确认导入', success: result => { if (!result.confirm) return; try { importTemplate(text, version); this.setData({ importVisible: false, importText: '', importPreview: null }); this.refresh(); wx.showToast({ title: '导入成功', icon: 'success' }); } catch (error) { this.fail(error); } } });
+    wx.showModal({ title: this.data.examplePreview ? '使用这份示例计划？' : '确认导入计划？', content: '将替换尚未执行的未来安排，并保存为新版本。已有执行记录和锁定历史不会被覆盖。', confirmText: '确认使用', success: result => { if (!result.confirm) return; try { importTemplate(text, version); this.setData({ importVisible: false, importText: '', importPreview: null, examplePreview: false }); this.refresh(); wx.showToast({ title: '导入成功', icon: 'success' }); } catch (error) { this.fail(error); } } });
   },
   onExportTemplate() { try { wx.setClipboardData({ data: exportTemplate() }); } catch (error) { this.fail(error); } },
   onRestoreVersion(e: any) {

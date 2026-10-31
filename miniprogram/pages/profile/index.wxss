@@ -1,30 +1,46 @@
 .profile { padding-top: 24px; }
 .profile .page-title { margin-bottom: 8px; }
-.info { margin-top: 20px; }
-.row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; font-size: 14px; min-height: 44px; }
-.row + .row { border-top: 1px solid #EDF1F0; }
-.value { color: #6E8486; text-align: right; min-width: 0; overflow-wrap: break-word; }
-.control { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #A1473D; font-size: 15px; min-height: 52px; }
-.arrow { color: #748A87; font-size: 24px; }
-.hint { color: #6A8082; font-size: 13px; line-height: 1.8; padding: 4px; margin-top: 8px; }
-.preferences-card .row:first-child, .phase-card .row:first-child, .sync-card .row:first-child { padding-top: 0; }
-.time-setting, .phase-setting { min-height: 44px; padding: 10px 8px; color: #286F67; background: transparent; font-size: 14px; display: flex; align-items: center; justify-content: center; }
-.minutes-setting { min-height: 44px; width: 88px; text-align: right; padding: 10px; border: 1px solid #CCDAD8; border-radius: 10px; color: #286F67; }
-.subscription-button, .save-phase-rules, .sync-now { margin-top: 16px; width: 100%; }
-.phase-rule { border-top: 1px solid #EDF1F0; margin-top: 16px; padding-top: 16px; }
-.phase-name { font-size: 16px; font-weight: 600; }
+.profile > .subtle { margin-bottom: 16px; }
+.settings-group { padding: 0 16px; margin-bottom: 8px; }
+.profile-section { min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
+.section-copy { min-width: 0; flex: 1; }
+.setting-title { color: var(--color-text); font-size: 16px; font-weight: 600; line-height: 1.5; }
+.setting-summary { color: var(--color-muted); font-size: 13px; margin-top: 4px; line-height: 1.6; overflow-wrap: break-word; }
+.section-chevron { color: var(--color-muted); font-size: 24px; width: 24px; flex: 0 0 24px; text-align: right; }
+.section-content { padding: 4px 0 18px; border-top: 1px solid var(--color-border); }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; font-size: 14px; min-height: 52px; }
+.row > text:first-child { min-width: 0; flex: 1; overflow-wrap: break-word; }
+.row > switch, .row > picker { flex-shrink: 0; }
+.row + .row { border-top: 1px solid var(--color-border); }
+.value { color: var(--color-muted); text-align: right; min-width: 0; overflow-wrap: break-word; }
+.profile .time-setting, .profile button.phase-setting { min-height: 44px; min-width: 72px; max-width: 140px; padding: 10px 8px; margin: 0; color: var(--color-primary); background: transparent; font-size: 14px; display: flex; align-items: center; justify-content: center; overflow-wrap: break-word; }
+.profile button.phase-setting { flex: 0 1 auto; }
+.minutes-control { display: flex; align-items: center; gap: 8px; flex-shrink: 0; color: var(--color-muted); }
+.minutes-setting { min-height: 44px; width: 64px; text-align: center; padding: 10px 6px; border: 1px solid var(--color-border); border-radius: 10px; color: var(--color-text); }
+.subscription-button, .save-phase-rules, .sync-now, .phase-rules-toggle { margin-top: 16px; width: 100%; }
+.training-group .phase-rules-toggle { color: var(--color-training); background: var(--color-training-soft); border-color: var(--color-training-soft); }
+.phase-rule { border-top: 1px solid var(--color-border); margin-top: 16px; padding-top: 16px; }
+.phase-name { color: var(--color-training); font-size: 16px; font-weight: 600; }
 .phase-rule .form-textarea { height: 92px; }
-.sync-state { color: #486E65; font-size: 14px; line-height: 1.7; margin-top: 6px; }
-.conflict-notice { color: #855F35; padding: 12px; background: #FFF4E5; border-radius: 10px; margin-top: 16px; font-size: 14px; line-height: 1.8; }
+.sync-state { color: var(--color-text); font-size: 14px; line-height: 1.7; margin-top: 12px; }
+.conflict-notice { color: var(--color-warning); padding: 12px; background: var(--color-warning-soft); border-radius: 10px; margin-top: 16px; font-size: 14px; line-height: 1.8; }
 .conflict-notice button { width: 100%; margin-top: 12px; }
-.feedback-message { padding: 12px 14px; color: #486E65; background: #E8F3EF; border-radius: 10px; font-size: 14px; line-height: 1.7; margin-top: 16px; }
-.reminder-preview { margin-top: 16px; border: 1px solid #CFE1D7; background: #F0F7F2; border-radius: 12px; padding: 14px; }
-.reminder-title { color: #286F67; font-size: 15px; font-weight: 600; }
-.reminder-name { margin-top: 8px; font-size: 14px; color: #3E5F57; line-height: 1.6; overflow-wrap: break-word; }
-.reminder-time { color: #6A8082; font-size: 13px; margin-top: 4px; line-height: 1.6; }
+.feedback-message { padding: 12px 14px; color: var(--color-primary); background: var(--color-primary-soft); border-radius: 10px; font-size: 14px; line-height: 1.7; margin-top: 16px; overflow-wrap: break-word; }
+.reminder-preview { margin-top: 16px; border: 1px solid var(--color-border); background: var(--color-primary-soft); border-radius: 12px; padding: 14px; }
+.reminder-title { color: var(--color-primary); font-size: 15px; font-weight: 600; }
+.reminder-name { margin-top: 8px; font-size: 14px; color: var(--color-text); line-height: 1.6; overflow-wrap: break-word; }
+.reminder-time { color: var(--color-muted); font-size: 13px; margin-top: 4px; line-height: 1.6; }
 .confirm-reminder { width: 100%; margin-top: 14px; }
 .reminder-jobs-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; font-size: 15px; font-weight: 600; }
-.refresh-reminders, .cancel-reminder { min-height: 44px; padding: 10px 6px; color: #286F67; background: transparent; font-size: 13px; display: flex; align-items: center; justify-content: center; }
-.reminder-job { border-top: 1px solid #E4ECE7; padding-top: 10px; margin-top: 8px; }
-.reminder-job-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #6A8082; font-size: 13px; min-height: 44px; }
-.reminder-limit { margin-top: 12px; }
+.profile button.refresh-reminders, .profile button.cancel-reminder { min-width: 44px; min-height: 44px; flex: 0 0 auto; padding: 10px 6px; margin: 0; color: var(--color-primary); background: transparent; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.reminder-job { border-top: 1px solid var(--color-border); padding-top: 10px; margin-top: 8px; }
+.reminder-job-status { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: var(--color-muted); font-size: 13px; min-height: 44px; }
+.reminder-limit, .offline-reminder-help { margin-top: 12px; }
+.profile button.data-management-toggle { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 48px; margin: 16px 0 0; padding: 10px 0; background: transparent; color: var(--color-text); font-size: 14px; text-align: left; border-top: 1px solid var(--color-border); border-radius: 0; }
+.data-management-toggle text { color: var(--color-muted); font-size: 22px; }
+.record-management { margin-top: 8px; padding: 12px; background: var(--color-danger-soft); border-radius: 10px; }
+.control { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 48px; color: var(--color-danger); font-size: 14px; }
+.control .section-chevron { color: var(--color-danger); }
+.privacy-copy { color: var(--color-muted); font-size: 13px; line-height: 1.8; margin-top: 12px; }
+.version-row { margin-top: 14px; border-top: 1px solid var(--color-border); }
+@media (max-width: 360px) { .profile .settings-group { padding: 0 14px; } .profile-section { min-height: 66px; } .row { gap: 8px; } }

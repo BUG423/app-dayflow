@@ -8,19 +8,31 @@ Page({
     version: '本地开发版', storage: '仅本机存储', preferences: {} as Preferences,
     phaseRuleDrafts: [] as any[], sync: { enabled: false, configured: false, pending: false, conflict: false },
     syncText: '云服务尚未连接', feedbackText: '', reminderPreview: null as ReminderPreview | null,
-    reminderJobs: [] as any[], reminderBusy: false
+    reminderJobs: [] as any[], reminderBusy: false,
+    expandedSection: '', phaseRulesVisible: false, phaseRulesDirty: false, recordManagementVisible: false
   },
   onShow() { this.refreshSettings(); },
   refreshSettings() {
     try {
       const preferences = getPreferences(); const sync = getSyncState();
-      this.setData({ preferences, phaseRuleDrafts: preferences.phaseRules.map(rule => ({ ...rule })), sync,
+      this.setData({ preferences, phaseRuleDrafts: this.data.phaseRulesDirty ? this.data.phaseRuleDrafts : preferences.phaseRules.map(rule => ({ ...rule })), sync,
         storage: sync.enabled ? '本机记录与可选云同步' : '仅本机存储',
         syncText: !sync.configured ? '云服务尚未连接' : sync.accountMismatch ? '账户已变化，请切回原账户后同步' : sync.conflict ? '两份内容均已保留，请选择使用哪份' : sync.queued ? '有待同步内容，本机记录已保留' : sync.lastSyncedAt ? '上次同步已完成' : '尚未同步' });
     } catch (_err) { this.setData({ feedbackText: '设置暂时无法读取，原始记录已保留，请稍后再试' }); }
   },
+  onToggleSection(e: any) {
+    const section = String(e.currentTarget.dataset.section);
+    if (!['reminders', 'training', 'data', 'about'].includes(section)) return;
+    this.setData({ expandedSection: this.data.expandedSection === section ? '' : section });
+  },
+  onTogglePhaseRules() { this.setData({ phaseRulesVisible: !this.data.phaseRulesVisible }); },
+  onToggleRecordManagement() { this.setData({ recordManagementVisible: !this.data.recordManagementVisible }); },
   saveSetting(patch: Partial<Preferences>) {
-    try { savePreferences(patch); this.refreshSettings(); this.setData({ feedbackText: '设置已保存；提醒仅在前台检查，后台消息需另外配置并授权' }); }
+    try {
+      savePreferences(patch);
+      if (patch.phaseRules) this.setData({ phaseRulesDirty: false });
+      this.refreshSettings(); this.setData({ feedbackText: '设置已保存' });
+    }
     catch (_err) { wx.showToast({ title: '未能保存，请检查时间或输入范围', icon: 'none' }); this.refreshSettings(); }
   },
   onSleepReminderChange(e: any) { this.saveSetting({ sleepReminderEnabled: !!e.detail.value }); },
@@ -37,7 +49,7 @@ Page({
   onPhaseRuleChange(e: any) {
     const { id, field } = e.currentTarget.dataset;
     if (field !== 'minSessions' && field !== 'description') return;
-    this.setData({ phaseRuleDrafts: this.data.phaseRuleDrafts.map(rule => rule.id === id ? { ...rule, [field]: e.detail.value } : rule) });
+    this.setData({ phaseRuleDrafts: this.data.phaseRuleDrafts.map(rule => rule.id === id ? { ...rule, [field]: e.detail.value } : rule), phaseRulesDirty: true });
   },
   onSavePhaseRules() { this.saveSetting({ phaseRules: this.data.phaseRuleDrafts.map(rule => ({ ...rule, minSessions: Number(rule.minSessions) })) }); },
   onRequestSubscription() {

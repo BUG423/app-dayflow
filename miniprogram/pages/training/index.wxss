@@ -1,54 +1,54 @@
 .training { padding-top: 24px; }
 .training .page-title { margin-bottom: 8px; }
 .summary { margin-top: 20px; }
-.summary-label { font-size: 14px; color: #5E7D76; }
-.summary-numbers { font-size: 29px; color: #28786E; font-weight: 700; margin: 8px 0 14px; }
+.summary-label { font-size: 14px; color: var(--color-muted); }
+.summary-numbers { font-size: 29px; color: var(--color-text); font-weight: 700; margin: 8px 0 14px; }
 .small { font-size: 13px; font-weight: 400; }
-.progress-track { height: 7px; background: #E1EDE7; border-radius: 7px; overflow: hidden; }
-.progress-fill { height: 100%; background: #28786E; }
-.alert { background: #FFF4E5; color: #816644; padding: 14px 16px; border-radius: 14px; font-size: 14px; line-height: 1.8; }
+.progress-track { height: 7px; background: #E5E7EB; border-radius: 7px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--color-training); }
+.alert { background: var(--color-warning-soft); color: var(--color-warning); padding: 14px 16px; border-radius: 14px; font-size: 14px; line-height: 1.8; }
 .alert-heading { font-weight: 650; margin-bottom: 6px; }
 .exercise-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .exercise-heading { flex: 1; min-width: 0; }
-.exercise-time { color: #6E8486; font-size: 13px; margin-bottom: 6px; }
+.exercise-time { color: var(--color-muted); font-size: 13px; margin-bottom: 6px; }
 .exercise-title { font-size: 17px; font-weight: 650; line-height: 1.5; overflow-wrap: break-word; }
-.dosage { margin-top: 6px; font-size: 14px; color: #286F67; }
-.check { border: 1px solid #BCCFCA; border-radius: 12px; height: 44px; width: 44px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; flex-shrink: 0; font-size: 22px; }
-.check.checked { background: #28786E; border-color: #28786E; }
-.description { margin-top: 14px; padding-top: 12px; border-top: 1px solid #EDF1F0; color: #5C7779; line-height: 1.8; font-size: 14px; }
-.search { color: #286F67; font-size: 13px; min-height: 44px; padding-top: 10px; display: flex; align-items: center; line-height: 1.7; overflow-wrap: break-word; }
-.stop { background: #FFFFFF; border: 1px solid #CDDCD7; color: #486B64; border-radius: 12px; margin: 20px 0 0; font-size: 15px; min-height: 44px; padding: 11px 16px; display: flex; align-items: center; justify-content: center; }
+.dosage { margin-top: 6px; font-size: 14px; color: var(--color-primary); }
+.check { border: 1px solid #D0D5DD; border-radius: 12px; height: 44px; width: 44px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; flex-shrink: 0; font-size: 22px; }
+.check.checked { background: var(--color-success); border-color: var(--color-success); }
+.description { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--color-border); color: var(--color-muted); line-height: 1.8; font-size: 14px; }
+.search { color: var(--color-primary); font-size: 13px; min-height: 44px; padding-top: 10px; display: flex; align-items: center; line-height: 1.7; overflow-wrap: break-word; }
+.stop { background: #FFFFFF; border: 1px solid var(--color-border); color: #344054; border-radius: 12px; margin: 20px 0 0; font-size: 15px; min-height: 44px; padding: 11px 16px; display: flex; align-items: center; justify-content: center; }
 .execution-controls { margin-top: 16px; }
 .execution-controls button { flex: 1; min-width: 120px; }
-.plan-hint { color: #587A70; font-size: 13px; margin-top: 10px; line-height: 1.7; }
-.task-status { color: #56786F; font-size: 13px; margin-top: 6px; }
-.action-detail { margin-top: 8px; color: #5C7779; font-size: 13px; line-height: 1.8; }
-.action-safety { margin-top: 8px; color: #89613C; background: #FFF5E8; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.8; }
+.plan-hint { color: var(--color-muted); font-size: 13px; margin-top: 10px; line-height: 1.7; }
+.task-status { color: var(--color-muted); font-size: 13px; margin-top: 6px; }
+.action-detail { margin-top: 8px; color: var(--color-muted); font-size: 13px; line-height: 1.8; }
+.action-safety { margin-top: 8px; color: var(--color-warning); background: var(--color-warning-soft); padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.8; }
 .exercise-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
 .exercise-actions button { flex: 1; }
-.feedback-editor { border-top: 1px solid #DFE9E4; margin-top: 16px; padding-top: 16px; }
+.feedback-editor { border-top: 1px solid var(--color-border); margin-top: 16px; padding-top: 16px; }
 .feedback-title { font-size: 16px; font-weight: 650; }
 .feedback-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-size: 14px; min-height: 44px; }
-.session-timer { margin-top: 12px; color: #557C72; font-size: 14px; }
+.session-timer { margin-top: 12px; color: var(--color-muted); font-size: 14px; }
 .phase-summary { margin-top: 12px; }
 .phase-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
-.phase-picker { min-height: 44px; padding: 10px 4px 10px 12px; color: #286F67; display: flex; align-items: center; }
+.phase-picker { min-height: 44px; padding: 10px 4px 10px 12px; color: var(--color-primary); display: flex; align-items: center; }
 .exercise-actions button { min-width: 92px; }
 .photo-list { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
 .photo-item { width: 92px; }
-.record-photo { display: block; width: 92px; height: 92px; border-radius: 12px; background: #EDF2EF; }
-.remove-photo { min-height: 44px; width: 100%; padding: 10px 0; background: transparent; font-size: 13px; color: #8D5D4E; display: flex; align-items: center; justify-content: center; }
-.photo-help { color: #748A87; font-size: 12px; margin-top: 8px; line-height: 1.7; }
-.photo-origin { margin-top: 6px; color: #748A87; font-size: 12px; text-align: center; line-height: 1.6; }
-.upload-photo { min-height: 44px; width: 100%; padding: 10px 0; background: transparent; font-size: 13px; color: #286F67; display: flex; align-items: center; justify-content: center; }
-.active-timer { border-color: #D0E3D8; background: #F0F7F2; min-height: 88px; }
-.active-timer-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; color: #557C72; }
-.active-timer-value { margin-top: 6px; font-size: 28px; font-weight: 700; color: #28786E; line-height: 1.4; }
+.record-photo { display: block; width: 92px; height: 92px; border-radius: 12px; background: #F2F4F7; }
+.remove-photo { min-height: 44px; width: 100%; padding: 10px 0; background: transparent; font-size: 13px; color: var(--color-danger); display: flex; align-items: center; justify-content: center; }
+.photo-help { color: var(--color-muted); font-size: 12px; margin-top: 8px; line-height: 1.7; }
+.photo-origin { margin-top: 6px; color: var(--color-muted); font-size: 12px; text-align: center; line-height: 1.6; }
+.upload-photo { min-height: 44px; width: 100%; padding: 10px 0; background: transparent; font-size: 13px; color: var(--color-primary); display: flex; align-items: center; justify-content: center; }
+.active-timer { border-color: #DDD6FE; background: var(--color-training-soft); min-height: 88px; }
+.active-timer-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--color-muted); }
+.active-timer-value { margin-top: 6px; font-size: 28px; font-weight: 700; color: var(--color-training); line-height: 1.4; }
 .timer-panel .editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.close-timer { min-height: 44px; min-width: 44px; padding: 10px 6px; color: #286F67; background: transparent; font-size: 14px; display: flex; align-items: center; justify-content: center; }
-.timer-remaining { color: #28786E; font-size: 38px; font-weight: 700; line-height: 1.3; margin-top: 14px; text-align: center; }
-.timer-status { color: #6A8082; font-size: 13px; text-align: center; margin-top: 4px; }
+.close-timer { min-height: 44px; min-width: 44px; padding: 10px 6px; color: var(--color-primary); background: transparent; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.timer-remaining { color: var(--color-training); font-size: 38px; font-weight: 700; line-height: 1.3; margin-top: 14px; text-align: center; }
+.timer-status { color: var(--color-muted); font-size: 13px; text-align: center; margin-top: 4px; }
 .timer-controls button { flex: 1; min-width: 72px; }
 .feedback-editor slider { min-height: 44px; }
 .timer-panel { height: 540px; max-height: 84vh; box-sizing: border-box; }
-.page-error { margin-top: 12px; padding: 12px 14px; color: #A1473D; background: #FFF1EF; border-radius: 10px; font-size: 14px; line-height: 1.7; }
+.page-error { margin-top: 12px; padding: 12px 14px; color: var(--color-danger); background: var(--color-danger-soft); border-radius: 10px; font-size: 14px; line-height: 1.7; }

@@ -102,6 +102,7 @@ export function getBlocksForDate(dateKey: string): PlanBlock[] {
     ]},
     { id: 'work-afternoon', title: '工作时间', start: '13:00', end: '17:00', kind: 'fixed', category: '工作', actions: [] },
     { id: 'training', title: workout.name, start: '17:30', end: '18:30', kind: 'sequence', category: '训练', actions: workout.steps.map((step, i) => a(day, i, step)) },
+    ...(day === 0 ? [] : [{ id: 'overtime', title: '加班', start: '18:30', end: '23:00', kind: 'fixed' as BlockKind, category: '加班', actions: [] }]),
     { id: 'sleep', title: '准备睡觉', start: '23:00', end: '23:15', kind: 'fixed', category: '生活', actions: [] }
   ];
   return blocks.sort((left, right) => left.start.localeCompare(right.start));

@@ -38,7 +38,7 @@ test('模板修改后历史统计的分母和原任务名称来自已锁定快�
   const runtime = createRuntime();
   runtime.storage.set('dayflow.records.v1', { '2026-10-30': { 'music-guitar': 'done' } });
   const plans = runtime.load('miniprogram/services/plans.ts');
-  const next = clone(plans.getTemplate()); next.schedules = []; plans.saveTemplate(next, 1);
+  const next = clone(plans.getTemplate()); next.schedules = []; plans.saveTemplate(next, next.version);
   const insights = runtime.load('miniprogram/services/insights.ts');
   const day = insights.getHistorySummary('2026-10-30', '2026-10-30').days[0];
   assert.equal(day.completed, 1); assert.equal(day.total, 9);
