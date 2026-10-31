@@ -19,8 +19,18 @@
 2. 克隆仓库，在微信开发者工具中**导入项目**（选择仓库根目录，含 project.config.json）。
 3. 将 project.config.json 的占位 appid 改为你自己的小程序 AppID；不要将个人本地配置提交进仓库。也可通过 project.private.config.json 在本机配置。
 4. 工具设置启用 TypeScript 编译插件；本项目 project.config.json 已配置 useCompilerPlugins。
-5. 在项目根目录执行 npm install、npm run typecheck、npm test。
+5. 在项目根目录执行 npm ci、npm run typecheck、npm test。
 6. 点击微信开发者工具「编译」，在模拟器内打开「今日」。
+
+## M1 验证状态（2026-10-31）
+
+已修复前台时间不更新、跨午夜仍停留旧日期、训练详情非法日期崩溃，以及存储读取失败后打卡可能覆盖历史的问题。
+本机类型检查及 19 项 Node 测试通过，覆盖页面生命周期、日期隔离、独立勾选、返回刷新、昨日回顾、存储故障和自动化脚本契约。
+Node 页面测试使用隔离的微信 API，不验证 WXML 渲染，也不代表模拟器或真机通过。
+
+Windows 模拟器流程见 [微信测试说明](docs/WECHAT_TESTING.md)，入口为 `npm run test:wechat`。
+脚本需要普通 Windows PowerShell 与已授权的微信开发者工具，不能在受限沙箱运行。
+本次实际环境、错误与未验证项见 [M1 验证报告](docs/M1_VALIDATION.md)。
 
 ## 工程目录
 
