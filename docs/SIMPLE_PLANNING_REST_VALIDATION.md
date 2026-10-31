@@ -11,7 +11,7 @@ pwsh -NoProfile -File scripts/wechat-planning-wizard.ps1 -Mode Validate -Label d
 pwsh -NoProfile -File scripts/wechat-planning-wizard.ps1 -Mode Layout -Label narrow
 ```
 
-第一条要求模拟器实际宽度为390px，第二条要求320px；标签本身不会修改设备。每次都记录 `miniprogram` 源文件 SHA-256 清单并检查运行期间未修改业务源。脚本使用官方微信开发者工具 CLI，先检查登录与版本；仅在工具要求时读取进程内可选 CLI token，不读取凭证文件。原生多列选择器通过公开的组件 `columnchange/change` 事件选择实际候选。覆盖确认通过官方 `automation_wx_api` 给 `showModal` 提供明确标记的受控确认/取消响应，再由真实页面事件和保存服务执行；不使用 `callMethod` 代替按钮。这些证据不能替代手工操作原生确认弹窗、滚动选择器或手机输入法验收。
+第一条要求模拟器实际宽度为390px，第二条要求320px；标签本身不会修改设备。每次都记录 `miniprogram` 源文件 SHA-256 清单并检查运行期间未修改业务源。脚本使用官方微信开发者工具 CLI，先检查登录与版本；仅在工具要求时读取进程内可选 CLI token，不读取凭证文件。原生多列选择器通过公开的组件 `columnchange/change` 事件选择实际候选，日期选择通过组件 `change` 事件设置。覆盖确认通过官方 `automation_wx_api` 给 `showModal` 提供明确标记的受控确认/取消响应，再由真实页面事件和保存服务执行；不使用 `callMethod` 代替按钮。这些证据不能替代手工操作原生确认弹窗、日期弹窗、滚动选择器或手机输入法验收。
 
 ## 本轮覆盖
 
@@ -38,13 +38,21 @@ pwsh -NoProfile -File scripts/wechat-planning-wizard.ps1 -Mode Layout -Label nar
 | --- | --- |
 | QA合成模型、严格注入及入口契约 | 9/9通过，exit0：真实模型/记录/快照校验、可用分钟与兄弟占用、远期冲突、复杂日期调整保留、一次确认跨工作日覆盖与范围失效、页面外部占用与兄弟占用的区别、今日休息对真实执行与倒计时的影响、CP936→UTF-8及多列组件事件；类型检查通过 |
 | 全量类型检查与Node测试 | 冻结业务源后 `npm run typecheck` exit0，`npm test` 244/244通过，失败0、跳过0、exit0；主协调者本机质量日志留存于忽略的 `artifacts/quality` |
-| 微信开发者工具真实编译与交互 | 等待本轮宿主实际运行日志 |
-| 390/320实际截图与矩形 | 等待本轮实际视觉审阅 |
+| GitHub CI | 检查点提交 `b058d331` 的 [Actions运行](https://github.com/BUG423/app-dayflow/actions/runs/41199039811) 已成功；此项不能替代下方模拟器、云或真机验收 |
+| 微信开发者工具390px真实编译与交互 | 完整重跑 `20261031-195710-default-validate` 通过，宿主exit0，337条断言（含精确恢复）；实际窗口390×671，iPhone12/13 Pro模拟机型；三个页面WXML/WXSS均编译，全部业务源清单不变；最终 `pending:false`、`restoreNeeded:false`、`mocked:[]` |
+| 390px实际截图与矩形 | 9张真实截图已审阅：事项、时间、重复、确认、覆盖确认页、同组无空档、休息理由、休息生效、详情休息；摘要/长名称换行、44px主要操作、固定底部操作和横向边界检查通过 |
+| 微信开发者工具320px真实编译、交互与视觉 | `20261031-201204-narrow-layout` 通过，宿主exit0，210条断言（含精确恢复）；实际窗口320×456，iPhone5模拟机型；8张实际截图已审，简化填写、覆盖取消、同组禁用、今日休息与详情/恢复均通过；全部业务源清单不变，最终 `pending:false`、`restoreNeeded:false`、`mocked:[]` |
 | 原生选择弹窗、输入法、字体放大 | 未验证 |
 | 真实云、照片权限及订阅消息送达 | 本轮未验证，仍需独立真实环境 |
 | Android/iOS微信真机 | 未验证 |
 
 失败运行不计为通过；修复后必须使用新目录重新运行并保留实际恢复结果。
+
+两轮通过后均完成全部Dayflow存储双恢复和精确读回，原今日界面恢复。337和210分别属于各自成功运行，均不包含失败首轮的132条。
+
+390/320最终控制台快照均没有 `TypeError`、`ReferenceError`、`SyntaxError`、warning或error；390快照仅含一条基础库 `WeChatLib 3.17.6` 信息。这些快照不能证明跨多次 `reLaunch` 的全部历史日志，也不能替代真实云验证。本轮没有发起云服务、照片权限或订阅消息送达验收。
+
+标准字体下未发现横向挤压；320px的长名称、完整确认内容、时间字段和后续选项需要纵向滚动查看，不代表所有字段同屏显示。固定底部操作可见且测量通过。系统字体放大、输入法展开后的遮挡、手工原生弹窗以及Android/iOS微信真机仍待独立验收。
 
 ### 失败及修正
 

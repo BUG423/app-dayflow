@@ -1,5 +1,7 @@
 # 分步计划向导验收
 
+> 历史方案记录：原向导方案已由本轮简化填写、冲突覆盖和今日休息验收取代，当前结果以 [SIMPLE_PLANNING_REST_VALIDATION.md](SIMPLE_PLANNING_REST_VALIDATION.md) 为准。下文旧例外编辑UI已不再提供；本文件不代表旧例外UI已完成模拟器验收。
+
 日期：2026-10-31。需求和范围见 [PLANNING_WIZARD_CONTRACT.md](PLANNING_WIZARD_CONTRACT.md)。本报告只记录这一轮向导与可用时段改动，不沿用此前版本的模拟器通过数量。
 
 ## 可重复入口
