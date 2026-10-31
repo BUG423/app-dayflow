@@ -449,14 +449,14 @@ Page({
     const preview = this.eveningUpdate, version = this.data.eveningVersion;
     if (!preview?.ok || !preview.lease) return;
     wx.showModal({ title: '更新晚间作息？', confirmText: '确认更新', cancelText: '暂不更新',
-      content: '从' + preview.summary.from + '起更新睡眠、加班、运动与睡前准备。周二四六不加班，其余日先加班再训练。将移除预览中的' + preview.removed.length + '处完整旧时段；白天、不冲突的自定义事项和已执行记录保留。',
+      content: '从' + preview.summary.from + '起更新睡眠、加班、运动与睡前准备。周二四六不加班，其余日先加班再训练。将移除预览中的' + preview.removed.length + '处完整旧时段；与新作息不冲突的白天安排和自定义事项保留，已执行记录也保留。',
       success: result => {
         if (!result.confirm) return;
         if (this.eveningUpdate?.lease !== preview.lease || !this.data.eveningPreview) { this.fail(new Error('预览内容已变化，请重新查看晚间作息后确认。')); return; }
         try {
           saveEveningRoutineUpdate(version, preview.lease); this.eveningUpdate = null;
           this.setData({ importVisible: false, examplePreview: false, eveningPreview: false, importPreview: null, importText: '',
-            saveNotice: preview.summary.keepsToday ? '未来作息已更新；今天已有执行记录，继续保留原安排。' : '晚间作息已更新，白天的安排保留。' });
+            saveNotice: preview.summary.keepsToday ? '未来作息已更新；今天已有执行记录，继续保留原安排。' : '晚间作息已更新，与新作息不冲突的白天安排和自定义事项保留。' });
           this.refresh(); wx.showToast({ title: '晚间作息已更新', icon: 'success' });
         } catch (error) { this.fail(error); }
       } });

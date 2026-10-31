@@ -4,7 +4,32 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createRuntime, clone } = require('./helpers/miniprogram');
 const { sunshinePayload } = require('../scripts/sunshine-acceptance-fixtures');
+const { wizardPayload } = require('../scripts/wizard-acceptance-fixtures');
 const date = '2026-10-31', at = new Date(2026, 9, 31, 20, 30).getTime();
+
+test('周日进入今日可预载下周一，休息基线应在导航稳定后且取消仍保留完整快照', () => {
+  const sunday = '2026-11-01', now = new Date(2026, 10, 1, 0, 6), run = createRuntime(now);
+  const payload = wizardPayload(sunday, now.getTime(), 'rest');
+  Object.entries(payload.values).forEach(([key, value]) => run.storage.set(key, clone(value)));
+  const plans = run.page('plans'); plans.onShow();
+  const instancesBeforeToday = clone(run.storage.get('dayflow.instances.v1'));
+  assert.equal(instancesBeforeToday['2026-11-02'], undefined);
+  const today = run.page('today'); today.onLoad(); today.onShow();
+  const derived = run.storage.get('dayflow.instances.v1')['2026-11-02'];
+  assert.equal(derived.locked, false); assert.equal(derived.templateVersion, 1);
+  for (const [key, value] of Object.entries(instancesBeforeToday)) {
+    assert.deepEqual(clone(run.storage.get('dayflow.instances.v1')[key]), value);
+  }
+  const before = clone([...run.storage]);
+  today.onOpenRest(); today.onCancelRest();
+  assert.deepEqual(clone([...run.storage]), before, 'all storage, including full derived snapshots, stays equal on cancellation');
+  today.onHide();
+  const script = fs.readFileSync(path.join(__dirname, '../scripts/wechat-planning-wizard.ps1'), 'utf8');
+  const rest = script.slice(script.indexOf('function Wz-Rest {'), script.indexOf('function Sz-Seed'));
+  assert.ok(rest.indexOf("Ux-Go 'pages/today/index'") < rest.indexOf('$before=Wz-RestSnapshot'));
+  assert.ok(rest.indexOf('$before=Wz-RestSnapshot') < rest.indexOf("Tap '.rest-day-open'"));
+  assert.match(rest, /@\('plan','versions','snapshots','records'\)/);
+});
 
 test('阳光验收夹具经真实模板、记录及快照校验，新版与已锁历史彼此独立', () => {
   for (const scenario of ['sunshine', 'empty']) {

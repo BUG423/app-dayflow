@@ -18,6 +18,22 @@ function setup() {
 }
 const snap=runtime=>clone([...runtime.storage]);
 
+test('晨睡与7至12白天安排重叠时列出完整旧时段，预览零写且08点衔接仍不移除',()=>{
+  const {runtime,plans,template}=setup();
+  const monday=template.schedules.find(rule=>rule.weekdays.includes(1));
+  monday.blocks.find(block=>block.id==='work-morning').start='07:00';
+  runtime.storage.set('dayflow.plans.v1',template);
+  const before=snap(runtime),preview=plans.previewEveningRoutineUpdate(4);
+  assert.equal(preview.ok,true,preview.errors.join(';'));assert.deepEqual(snap(runtime),before);
+  const removed=preview.removed.filter(row=>row.blockId==='work-morning');
+  assert.equal(removed.length,1);assert.deepEqual([removed[0].start,removed[0].end],['07:00','12:00']);
+  assert.deepEqual(clone(removed[0].weekdays),[1]);
+  assert.ok(!preview.removed.some(row=>row.blockId==='work-morning'&&row.start==='08:00'));
+  const page=runtime.page('plans');page.onShow();page.onPreviewEveningUpdate();page.onConfirmEveningUpdate();
+  const modal=runtime.calls.modals.at(-1);assert.match(modal.content,/与新作息不冲突的白天安排和自定义事项保留/);
+  const afterPreview=snap(runtime);modal.success({confirm:false});assert.deepEqual(snap(runtime),afterPreview);
+});
+
 test('仅更新晨睡和晚间，保已改8至12白天与私人兴趣，泳日非重叠旧加班也移除',()=>{
   const {runtime,plans,template}=setup(),before=snap(runtime),preview=plans.previewEveningRoutineUpdate(4);
   assert.equal(preview.ok,true,preview.errors.join(';'));assert.equal(preview.routines.length,7);

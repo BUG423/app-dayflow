@@ -44,6 +44,8 @@ if($Mode -in @('Restore','Poll')){
 }
 $sources=(& node (Join-Path $PSScriptRoot 'acceptance-fixtures.js')|Out-String)|ConvertFrom-Json -AsHashtable
 if($LASTEXITCODE -ne 0){throw 'Backup helper generation failed.'}
+$restoreSources=(& node (Join-Path $PSScriptRoot 'acceptance-restore-transport.js')|Out-String)|ConvertFrom-Json -AsHashtable
+if($LASTEXITCODE -ne 0 -or $restoreSources.maxChunk -ne 8192){throw 'Restore transport helper generation failed.'}
 $wizardSources=(& node (Join-Path $PSScriptRoot 'wizard-acceptance-fixtures.js') (Get-Date).ToString('yyyy-MM-dd')|Out-String)|ConvertFrom-Json -AsHashtable
 if($LASTEXITCODE -ne 0 -or $wizardSources.basic.values['dayflow.plans.v1'].schedules[0].title -ne '上午工作'){throw 'Fixture generation or UTF8 decoding failed before storage access.'}
 $sunSources=$null
@@ -72,6 +74,48 @@ function Wz-RestoreApis {
   $script:State.mocked=@();Save-State
 }
 function Wz-RestoreInterface {Wz-RestoreApis;Ux-RestoreInterface}
+function Get-RestoreTextHash([string]$Text){
+  [uint64]$hash=2166136261
+  for($i=0;$i -lt $Text.Length;$i++){$hash=(($hash -bxor [uint64][int][char]$Text[$i])*[uint64]16777619) -band [uint64]4294967295}
+  return ('{0:x8}' -f $hash)
+}
+function Split-RestoreText([string]$Text){
+  $chunks=[Collections.Generic.List[string]]::new();$offset=0
+  while($offset -lt $Text.Length){
+    $length=[math]::Min(8192,$Text.Length-$offset)
+    if($offset+$length -lt $Text.Length -and [char]::IsHighSurrogate($Text[$offset+$length-1])){$length--}
+    $chunks.Add($Text.Substring($offset,$length));$offset+=$length
+  }
+  return ,$chunks.ToArray()
+}
+# Overrides the imported storage restore only within this acceptance entry point.
+# Ux-RestoreInterface still performs both restores and the real-day navigation.
+function Ux-RestoreAll {
+  $text=[IO.File]::ReadAllText((Join-Path $script:RunDirectory 'all-dayflow-backup.json'),[Text.Encoding]::UTF8)
+  $chunks=Split-RestoreText $text;$nonce=[guid]::NewGuid().ToString('N')
+  if($script:State.restoreTransportNonce){
+    $aborted=Evaluate ($restoreSources.abort -replace '\r?\n',' ') @($script:State.restoreTransportNonce)
+    if(-not $aborted.aborted){throw 'The previous restore transfer could not be cleared safely.'}
+    $script:State.restoreTransportNonce=$null;Save-State
+  }
+  $script:State.restoreTransportNonce=$nonce;Save-State
+  try {
+    $meta=@{nonce=$nonce;total=$chunks.Count;chars=$text.Length;hash=(Get-RestoreTextHash $text)}
+    $begun=Evaluate ($restoreSources.begin -replace '\r?\n',' ') @($meta)
+    if(-not $begun.begun -or $begun.total -ne $chunks.Count -or $begun.chars -ne $text.Length){throw 'Restore transfer metadata was not acknowledged.'}
+    for($index=0;$index -lt $chunks.Count;$index++){
+      $part=$chunks[$index];$packet=@{nonce=$nonce;index=$index;total=$chunks.Count;chars=$part.Length;hash=(Get-RestoreTextHash $part);text=$part}
+      $ack=Evaluate ($restoreSources.part -replace '\r?\n',' ') @($packet)
+      if($ack.index -ne $index -or $ack.received -ne $index+1 -or $ack.chars -ne $part.Length){throw 'Restore transfer chunk was not acknowledged.'}
+    }
+    $result=Evaluate ($restoreSources.finish -replace '\r?\n',' ') @($nonce)
+    $script:State.restoreTransportNonce=$null;Save-State
+    Assert-That ($result.equal -eq $true) 'All original Dayflow keys and values restored with exact read-back'
+  }catch{
+    if(-not $script:Pending){try{$ack=Evaluate ($restoreSources.abort -replace '\r?\n',' ') @($nonce);if($ack.aborted){$script:State.restoreTransportNonce=$null;Save-State}}catch{}}
+    throw
+  }
+}
 function Wz-Seed([string]$Scenario){
   $seeded=Evaluate ($wizardSources.seedWizard -replace '\r?\n',' ') @($wizardSources[$Scenario]);Assert-That $seeded.seeded ('Synthetic fixture installed: '+$Scenario)
   # Drop cached tabs/drafts so every case observes the actual seeded storage.
@@ -221,9 +265,12 @@ function Wz-RestLayout([string]$Name,[string]$Anchor,[string[]]$Controls){
   Ux-Shot $Name $Anchor
 }
 function Wz-Rest {
-  Wz-Seed 'rest';$before=Wz-RestSnapshot
+  Wz-Seed 'rest'
   $p=Ux-Go 'pages/today/index' '.rest-day-open' 'restActive'
   Assert-That (-not $p.restActive -and $p.heroTitle -eq '收好物品') 'Original running task is visible before choosing rest'
+  # Today foreground reminders may derive tomorrow's unlocked cache (Sunday -> Monday).
+  # Capture after entering Today, still before any rest interaction; keep full snapshot equality.
+  $before=Wz-RestSnapshot
   Tap '.rest-day-open';$p=Ux-Page '.rest-day-confirm' 'restEditorVisible'
   Assert-That ($p.restEditorVisible -and -not $p.restReasonInput) 'Rest opens with an optional empty reason'
   Tap '.rest-day-cancel';Wz-Equal $before (Wz-RestSnapshot) @('plan','versions','snapshots','records') 'Cancelling rest writes no plan or execution data'
@@ -308,6 +355,7 @@ function Sz-EveningAdoption {
   Tap '.plan-tools-toggle';Tap '.evening-update-toggle';$p=Ux-Page '.confirm-evening-update' 'eveningPreview'
   Assert-That ($p.eveningPreview -and $p.importPreview.ok) 'Existing custom plans can preview an evening-only update without using full template import'
   Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Previewing an evening-only update changes nothing'
+  Ux-Shot 'sunshine-evening-preview' '.import-panel'
   Wz-Modal $false;Tap '.confirm-evening-update';Wz-RestoreApis
   Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Cancelling the evening update preserves the whole original custom plan'
   Wz-Modal $true;Tap '.confirm-evening-update';Wz-RestoreApis;$p=Ux-Page '.create-schedule' 'templateVersion';$after=Wz-Snapshot

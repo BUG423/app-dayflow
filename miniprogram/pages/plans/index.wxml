@@ -79,7 +79,7 @@
 
   <view wx:if="{{toolsVisible && importVisible}}" class="card import-panel">
     <view class="editor-title">{{eveningPreview ? '更新晚间作息' : examplePreview ? '查看示例计划' : '导入或导出计划'}}</view>
-    <view class="field-help">{{eveningPreview ? '只更新睡眠、加班、运动和睡前准备。白天、不冲突的自定义事项及已执行记录保留。请先看七天安排，再确认更新。' : examplePreview ? '这是可修改的示例。先查看内容，确认使用才会替换未来安排；已有执行历史保留。' : '粘贴标准模板内容，先查看校验结果，再确认导入。'}}</view>
+    <view class="field-help">{{eveningPreview ? '更新睡眠、加班、运动和睡前准备，并列出冲突的完整旧时段。与新作息不冲突的白天安排和自定义事项保留，已执行记录也保留。请先看七天安排与调整明细，再确认更新。' : examplePreview ? '这是可修改的示例。先查看内容，确认使用才会替换未来安排；已有执行历史保留。' : '粘贴标准模板内容，先查看校验结果，再确认导入。'}}</view>
     <textarea wx:if="{{!examplePreview}}" class="form-textarea import-content" value="{{importText}}" bindinput="onImportInput" maxlength="262145" placeholder="在这里粘贴模板内容" />
     <view wx:if="{{!examplePreview}}" class="button-row"><button class="button-primary preview-import" bindtap="onPreviewImport">校验并预览</button><button class="button-secondary" bindtap="onExportTemplate">复制当前模板</button></view>
     <view wx:if="{{examplePreview}}" class="example-schedules"><view wx:for="{{exampleRows}}" wx:key="id" class="example-day"><view class="example-title">{{item.title}}</view><view wx:for="{{item.blocks}}" wx:for-item="block" wx:key="id" class="example-block"><view><text>{{block.title}}</text><text class="example-kind">{{block.label}}</text></view><view class="example-time">{{block.time}}</view></view></view></view>
