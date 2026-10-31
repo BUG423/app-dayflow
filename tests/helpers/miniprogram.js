@@ -8,12 +8,12 @@ const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringi
 
 // Runs real page/service modules with an isolated WeChat API and controllable device clock.
 // This verifies application logic only, not WXML rendering or the WeChat simulator.
-function createRuntime(initialDate = new Date(2026, 9, 31, 12, 4)) {
+function createRuntime(initialDate = new Date(2026, 9, 31, 12, 4), options = {}) {
   let now = initialDate;
   let nextTimer = 0;
   const timers = new Map();
   const storage = new Map();
-  const calls = { toasts: [], modals: [], navigations: [] };
+  const calls = { toasts: [], modals: [], navigations: [], actionSheets: [], previews: [], clipboard: [] };
   class DeviceDate extends Date {
     constructor(...args) { super(...(args.length ? args : [now.getTime()])); }
     static now() { return now.getTime(); }
@@ -21,12 +21,17 @@ function createRuntime(initialDate = new Date(2026, 9, 31, 12, 4)) {
   const wx = {
     getStorageSync: key => clone(storage.get(key)),
     setStorageSync: (key, value) => storage.set(key, clone(value)),
+    removeStorageSync: key => storage.delete(key),
+    getStorageInfoSync: () => ({ keys: [...storage.keys()] }),
     showToast: value => calls.toasts.push(value),
     showModal: value => calls.modals.push(value),
+    showActionSheet: value => calls.actionSheets.push(value),
+    previewImage: value => calls.previews.push(value),
     navigateTo: value => calls.navigations.push(value),
     navigateBack: () => calls.navigations.push({ back: true }),
     stopPullDownRefresh() {},
-    setClipboardData() {}
+    setClipboardData: value => calls.clipboard.push(value),
+    showLoading() {}, hideLoading() {}
   };
   const cache = new Map();
   let capturedPage;
@@ -40,6 +45,8 @@ function createRuntime(initialDate = new Date(2026, 9, 31, 12, 4)) {
     let filename = path.resolve(parent, relative);
     if (!path.extname(filename)) filename += fs.existsSync(filename + '.ts') ? '.ts' : '.js';
     if (!filename.startsWith(root + path.sep)) throw new Error('Module outside project');
+    const mock = options.modules?.[path.relative(root, filename).split(path.sep).join('/')];
+    if (mock !== undefined) return mock;
     if (cache.has(filename)) return cache.get(filename).exports;
     let source = fs.readFileSync(filename, 'utf8');
     if (filename.endsWith('.ts')) {

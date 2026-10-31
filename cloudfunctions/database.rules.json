@@ -1,0 +1,4 @@
+{
+  "dayflow_private_state": { "read": false, "write": false },
+  "dayflow_reminder_jobs": { "read": false, "write": false }
+}

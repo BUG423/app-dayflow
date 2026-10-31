@@ -1,28 +1,109 @@
 <view class="page training">
-  <view class="eyebrow">TRAINING SESSION</view>
   <view class="page-title">{{title}}</view>
   <view class="subtle">{{dateKey}} · {{time}}</view>
+  <view wx:if="{{loadError}}" class="page-error">{{loadError}}</view>
   <view class="summary card">
-    <view class="summary-label">今天的训练进度</view>
+    <view class="summary-label">{{isTrainingBlock ? '本次训练进度' : '本次执行进度'}}</view>
     <view class="summary-numbers">{{progressText}} <text class="small">项完成</text></view>
     <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
+    <view wx:if="{{sessionElapsedText}}" class="session-timer">实际执行累计时间：{{sessionElapsedText}}</view>
   </view>
-  <view class="alert">
+  <view wx:if="{{timerState && timerState.dateKey === dateKey && !showTimerPanel}}" class="card active-timer" data-id="{{timerState.targetId}}" bindtap="onSelectTimerTarget" aria-role="button" aria-label="{{isTrainingBlock ? '打开动作倒计时' : '打开步骤倒计时'}}">
+    <view class="active-timer-heading"><text>{{isTrainingBlock ? '动作倒计时' : '步骤倒计时'}}</text><text>{{timerStatusText}}</text></view>
+    <view class="active-timer-value">{{timerRemainingText}}</view>
+    <view class="field-help">{{timerTargetTitle}} · 点击调整</view>
+  </view>
+  <view wx:if="{{isTrainingBlock}}" class="card phase-summary">
+    <view class="phase-row"><text>当前阶段</text><picker range="{{phaseOptions}}" value="{{phaseIndex}}" bindchange="onTrainingPhaseChange"><view class="phase-picker">{{trainingPhase || '基础'}}　⌄</view></picker></view>
+    <view wx:if="{{phaseDescription}}" class="field-help">{{phaseDescription}}</view>
+    <view class="field-help">阶段由你选择，参考次数不会强制解锁。</view>
+  </view>
+  <view wx:if="{{isTrainingBlock}}" class="alert">
     <view class="alert-heading">训练前请注意</view>
     <view>{{safety}}</view>
   </view>
-  <view class="section-heading">训练动作</view>
+  <view class="button-row execution-controls">
+    <button class="button-primary" bindtap="onStart">开始执行</button>
+    <button wx:if="{{isTrainingBlock && (emergencyAvailable || emergencyEnabled)}}" class="button-secondary" disabled="{{!emergencyAvailable}}" bindtap="onEmergency">{{emergencyEnabled ? '恢复常规计划' : '改用15分钟简化计划'}}</button>
+  </view>
+  <view wx:if="{{isTrainingBlock && emergencyEnabled}}" class="plan-hint">已选择15分钟简化计划，仍可随时停止动作。</view>
+  <view wx:if="{{isTrainingBlock && !emergencyAvailable && actions.length}}" class="plan-hint">已有执行记录的日期保留当时计划。如需切换常规或简化安排，请选择尚未执行的日期。</view>
+  <view class="section-heading">{{isTrainingBlock ? '训练动作' : '执行步骤'}}</view>
   <view wx:for="{{actions}}" wx:for-item="action" wx:key="id" class="exercise card">
     <view class="exercise-top">
       <view class="exercise-heading">
         <view class="exercise-time">{{action.start}}–{{action.end}}</view>
         <view class="exercise-title">{{action.title}}</view>
         <view wx:if="{{action.dosage}}" class="dosage">{{action.dosage}}</view>
+        <view class="task-status">{{action.statusText || '待开始'}}</view>
       </view>
-      <view class="check {{action.done ? 'checked' : ''}}" data-id="{{action.id}}" bindtap="onToggleAction">{{action.done ? '✓' : ''}}</view>
+      <view class="check {{action.done ? 'checked' : ''}}" data-id="{{action.id}}" bindtap="onToggleAction" aria-role="checkbox" aria-checked="{{action.done}}" aria-label="{{action.done ? '取消完成' : '标记完成'}} {{action.title}}">{{action.done ? '✓' : ''}}</view>
     </view>
     <view class="description">{{action.description}}</view>
+    <view wx:if="{{action.equipment}}" class="action-detail">器材：{{action.equipment}}</view>
+    <view wx:if="{{action.safety}}" class="action-safety">注意：{{action.safety}}</view>
     <view wx:if="{{action.searchKeyword}}" class="search" data-keyword="{{action.searchKeyword}}" bindtap="onCopyKeyword">复制示范检索词：{{action.searchKeyword}}　↗</view>
+    <view class="exercise-actions">
+      <button class="button-secondary" data-id="{{action.id}}" bindtap="onActionMenu">调整状态</button>
+      <button class="button-secondary open-feedback" data-id="{{action.id}}" bindtap="onOpenFeedback">记录感受</button>
+      <button class="button-secondary choose-photo" data-id="{{action.id}}" bindtap="onChoosePhoto">添加照片</button>
+      <button class="button-secondary select-timer" data-id="{{action.id}}" bindtap="onSelectTimerTarget">{{isTrainingBlock ? '动作计时' : '步骤计时'}}</button>
+    </view>
+    <view wx:if="{{action.photos.length}}" class="photo-list">
+      <view wx:for="{{action.photos}}" wx:for-item="photo" wx:key="id" class="photo-item">
+        <image class="record-photo" src="{{photo.localPath || photo.cloudFileID}}" mode="aspectFill" data-path="{{photo.localPath || photo.cloudFileID}}" bindtap="onPreviewPhoto" aria-label="查看执行照片" />
+        <view class="photo-origin">{{photo.localPath ? (photo.cloudFileID ? '本机及云端' : '本机照片') : '云端照片'}}</view>
+        <button wx:if="{{!photo.cloudFileID && cloudSyncEnabled}}" class="upload-photo" data-photo-id="{{photo.id}}" bindtap="onUploadPhoto">上传到云端</button>
+        <button class="remove-photo" data-photo-id="{{photo.id}}" bindtap="onRemovePhoto" aria-label="取消这张照片与任务的关联">移除关联</button>
+      </view>
+    </view>
+    <view class="photo-help">照片由你自选，不影响任务是否完成。</view>
+    <view wx:if="{{showFeedbackEditor && feedbackTargetId === action.id}}" class="feedback-editor">
+      <view class="feedback-title">记录这次执行</view>
+      <view class="field-help">{{feedbackTargetTitle}}</view>
+      <view class="form-field">
+        <label class="field-label">{{isTrainingBlock ? '主观用力程度' : '主观投入程度'}}：{{feedbackEffort}} / 5</label>
+        <slider min="1" max="5" step="1" value="{{feedbackEffort}}" activeColor="#28786E" bindchange="onFeedbackEffortChange" aria-label="{{isTrainingBlock ? '主观用力程度' : '主观投入程度'}}" />
+      </view>
+      <view class="feedback-switch"><text>本次有不适感</text><switch checked="{{feedbackDiscomfort}}" color="#28786E" bindchange="onFeedbackDiscomfortChange" aria-label="本次有不适感" /></view>
+      <view wx:if="{{feedbackDiscomfort && isTrainingBlock}}" class="action-safety">请停止或降低强度，并请专业人员审核；无需勉强完成。</view>
+      <view wx:if="{{feedbackDiscomfort && !isTrainingBlock}}" class="field-help">可以暂停或调整安排，无需勉强完成。</view>
+      <view class="form-field">
+        <label class="field-label">补充说明</label>
+        <textarea class="form-textarea" value="{{feedbackNote}}" maxlength="500" placeholder="记下感受、调整或下次想注意的事" bindinput="onFeedbackNoteInput" />
+      </view>
+      <view class="button-row">
+        <button class="button-primary" bindtap="onSaveFeedback">保存感受</button>
+        <button class="button-secondary" bindtap="onCancelFeedback">取消</button>
+      </view>
+    </view>
   </view>
-  <button class="stop" bindtap="onStop">暂停或结束训练</button>
+  <button class="stop" bindtap="onStop">{{isTrainingBlock ? '中止本次训练' : '中止本次执行'}}</button>
+  <view wx:if="{{showTimerPanel}}" class="modal-mask">
+    <scroll-view class="modal-card timer-panel" scroll-y>
+      <view class="editor-heading"><view class="modal-title">{{isTrainingBlock ? '动作倒计时' : '步骤倒计时'}}</view><button class="close-timer" bindtap="onCloseTimerPanel">关闭</button></view>
+      <view class="modal-subtitle">计时项目：{{timerSelectedTitle}}</view>
+      <view wx:if="{{timerTargetTitle && timerTargetTitle !== timerSelectedTitle}}" class="field-help">当前计时：{{timerTargetTitle}}</view>
+      <view class="timer-remaining">{{timerRemainingText}}</view>
+      <view class="timer-status">{{timerStatusText}}</view>
+      <view wx:if="{{timerReadError}}" class="action-safety">{{timerReadError}}</view>
+      <view class="form-field"><label class="field-label">时长（秒，5至10800）</label><input class="form-input" type="number" value="{{timerSecondsInput}}" bindinput="onTimerDurationInput" maxlength="5" placeholder="例如：60" /></view>
+      <view class="button-row timer-controls">
+        <button class="button-primary start-timer" bindtap="onStartTimer">开始计时</button>
+        <button wx:if="{{timerState.status === 'running'}}" class="button-secondary" bindtap="onPauseTimer">暂停</button>
+        <button wx:if="{{timerState.status === 'paused'}}" class="button-secondary" bindtap="onResumeTimer">继续</button>
+        <button class="button-secondary" bindtap="onResetTimer">重置</button>
+      </view>
+      <view class="field-help">独立倒计时，结束不会自动完成任务。仅在前台提示结束，后台不保证提醒。</view>
+    </scroll-view>
+  </view>
+  <view wx:if="{{showDeferEditor}}" class="modal-mask">
+    <view class="modal-card">
+      <view class="modal-title">选择延期日期</view>
+      <view class="modal-subtitle">{{deferTargetTitle}}</view>
+      <view class="form-field"><label class="field-label">安排到哪一天</label><picker mode="date" value="{{deferDate}}" bindchange="onDeferDateChange"><view class="form-picker">{{deferDate}}　⌄</view></picker></view>
+      <view class="field-help">保存后仅标记延期，可到计划页一键安排目标日任务。</view>
+      <view class="button-row"><button class="button-primary" bindtap="onConfirmDefer">确认延期</button><button class="button-secondary" bindtap="onCancelDefer">取消</button></view>
+    </view>
+  </view>
 </view>

@@ -8,6 +8,11 @@ param(
   [ValidateSet('Validate', 'Poll', 'Restore')][string]$Mode = 'Validate',
   [string]$RunDirectory
 )
+if ($Mode -eq 'Validate') {
+  # New modules write multiple storage keys; always use the complete backup flow.
+  & (Join-Path $PSScriptRoot 'wechat-iteration.ps1') -Project $Project -WechatIde $WechatIde -Mode Validate -RunDirectory $RunDirectory
+  exit $LASTEXITCODE
+}
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $script:Project = (Resolve-Path -LiteralPath $Project).Path
@@ -56,6 +61,55 @@ function Find-Object($Value, [string]$RequiredKey) {
   }
   return $null
 }
+function Invoke-NativeArgumentProcess([string]$FilePath, [string[]]$NativeArguments, [string]$WorkingDirectory, [hashtable]$EnvironmentOverrides = @{}) {
+  # ArgumentList reaches the executable directly. No cmd.exe expansion of &, %, !,
+  # quotes, redirects, or a caller-supplied token takes place.
+  $start = [Diagnostics.ProcessStartInfo]::new()
+  $start.FileName = $FilePath
+  $start.UseShellExecute = $false
+  $start.CreateNoWindow = $true
+  $start.RedirectStandardOutput = $true
+  $start.RedirectStandardError = $true
+  $start.StandardOutputEncoding = [Text.UTF8Encoding]::new($false)
+  $start.StandardErrorEncoding = [Text.UTF8Encoding]::new($false)
+  if ($WorkingDirectory) { $start.WorkingDirectory = $WorkingDirectory }
+  foreach ($argument in $NativeArguments) { $start.ArgumentList.Add($argument) }
+  foreach ($key in $EnvironmentOverrides.Keys) { $start.Environment[$key] = $EnvironmentOverrides[$key] }
+  $process = [Diagnostics.Process]::new()
+  $process.StartInfo = $start
+  try {
+    if (-not $process.Start()) { throw 'Native CLI process could not start.' }
+    $stdout = $process.StandardOutput.ReadToEndAsync()
+    $stderr = $process.StandardError.ReadToEndAsync()
+    if (-not $process.WaitForExit(180000)) {
+      $process.Kill($true)
+      $process.WaitForExit()
+      throw 'Native CLI process timed out; do not replay a write without checking task state.'
+    }
+    return @{ exitCode=$process.ExitCode; stdout=$stdout.GetAwaiter().GetResult(); stderr=$stderr.GetAwaiter().GetResult() }
+  } finally { $process.Dispose() }
+}
+function Invoke-InstalledWechatCli([string]$CliPath, [string[]]$NativeArguments) {
+  if (-not $IsWindows) { throw 'The installed WeChat CLI requires Windows.' }
+  $resolved = (Resolve-Path -LiteralPath $CliPath).Path
+  if ([IO.Path]::GetFileName($resolved) -ine 'wechatide.cmd') { throw 'Expected the installed official wechatide.cmd entry.' }
+  $directory = Split-Path $resolved -Parent
+  $cli = Join-Path $directory 'resources\app.asar.unpacked\js\common\cli\skill-index.js'
+  $bootstrap = "const e=process.argv[1],a=process.argv.slice(2).filter(function(x){return x!=='--electron'});if(!process.env.cwd)process.env.cwd=process.cwd();process.argv=[process.execPath,e,'--electron'].concat(a);require(e)"
+  $wrapper = [IO.File]::ReadAllText($resolved)
+  # Match the installed wrapper's exact bootstrap and CLI location. A changed
+  # installation must be reviewed instead of guessing another internal entry.
+  if (-not $wrapper.Contains('set "BOOTSTRAP_JS=' + $bootstrap + '"') -or
+      -not $wrapper.Contains('resources\app.asar.unpacked\js\common\cli\skill-index.js') -or
+      -not $wrapper.Contains('set "ELECTRON_RUN_AS_NODE=1"') -or
+      -not (Test-Path -LiteralPath $cli -PathType Leaf)) { throw 'Installed WeChat CLI bootstrap changed; review the official entry before continuing.' }
+  $excluded = @('node.exe','node-18.exe','wxfilewatcher.exe','wxfilewatcher_x64.exe','notification_helper.exe','wechatdevtools.exe')
+  $executables = @(Get-ChildItem -LiteralPath $directory -Filter '*.exe' -File | Where-Object { $_.Length -gt 50000000 -and $excluded -notcontains $_.Name })
+  if ($executables.Count -ne 1) { throw 'Cannot uniquely identify the Electron executable used by the installed official wrapper.' }
+  # This is the same bootstrap as wechatide.cmd, replacing only its unsafe %*
+  # forwarding. skill-index still performs the original client/auth/tool gates.
+  return Invoke-NativeArgumentProcess $executables[0].FullName (@('-e', $bootstrap, $cli) + $NativeArguments) $directory @{ ELECTRON_RUN_AS_NODE='1'; cwd=(Get-Location).ProviderPath }
+}
 function Invoke-Ide([string]$Tool, [string[]]$ToolArguments = @(), [switch]$ProjectTool) {
   $script:Sequence++
   $arguments = @('-c', 'Codex', $Tool)
@@ -64,12 +118,19 @@ function Invoke-Ide([string]$Tool, [string[]]$ToolArguments = @(), [switch]$Proj
   if ($script:Token) { $arguments += @('--token', $script:Token) }
   # No command string, Invoke-Expression, transcript, or argument logging. The token
   # comes only from this process environment and is never written to artifacts.
-  $outputLines = @(& $WechatIde @arguments 2>&1)
-  $nativeExit = $LASTEXITCODE
-  # PowerShell represents redirected native stderr as ErrorRecord objects.
-  # Preserve diagnostics as evidence, but parse only the JSON stdout payload.
-  $raw = ($outputLines | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | Out-String)
-  $diagnostics = ($outputLines | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | Out-String)
+  if ([IO.Path]::GetExtension($WechatIde) -ieq '.cmd') {
+    $native = Invoke-InstalledWechatCli $WechatIde $arguments
+    $nativeExit = $native.exitCode
+    $raw = $native.stdout
+    $diagnostics = $native.stderr
+  } else {
+    # Preserve function-based, in-process contract fixtures; the real installed
+    # Windows entry always follows the validated shell-free path above.
+    $outputLines = @(& $WechatIde @arguments 2>&1)
+    $nativeExit = $LASTEXITCODE
+    $raw = ($outputLines | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | Out-String)
+    $diagnostics = ($outputLines | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | Out-String)
+  }
   $loggedRaw = $diagnostics + $raw
   if ($script:Token) { $loggedRaw = $loggedRaw.Replace($script:Token, '[REDACTED]') }
   $name = '{0:D3}-{1}' -f $script:Sequence, $Tool

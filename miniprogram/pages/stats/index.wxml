@@ -1,17 +1,62 @@
 <view class="page stats">
-  <view class="eyebrow">YOUR PROGRESS</view>
-  <view class="page-title">每一步都算数</view>
-  <view class="subtle">记录真实的行动，而不是追求完美。</view>
-  <view class="overview card">
-    <view class="overview-label">本周截至今天的任务完成率</view>
-    <view class="overview-number">{{percent}}<text class="percent-sign">%</text></view>
-    <view class="subtle">已完成 {{weeklyDone}} / {{weeklyTotal}} 项</view>
-    <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
+  <view class="page-title">执行统计</view>
+  <view class="subtle">看见真实的行动，也给自己留出调整空间。</view>
+  <view class="week-navigation">
+    <button class="week-control" bindtap="onPreviousWeek" aria-label="查看上一周">‹</button>
+    <view class="week-label">{{weekLabel}}</view>
+    <button class="week-control" bindtap="onNextWeek" aria-label="查看下一周">›</button>
+    <button class="current-week" bindtap="onCurrentWeek">本周</button>
   </view>
-  <view class="section-heading">每日执行情况</view>
+  <view wx:if="{{errorMessage}}" class="stats-error">{{errorMessage}}</view>
+  <view class="overview card">
+    <view class="overview-label">这一周已发生日期的任务完成率</view>
+    <view class="overview-number">{{percent}}<text class="percent-sign">%</text></view>
+    <view class="subtle">已完成{{weeklyDone}} / {{weeklyTotal}}项</view>
+    <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
+    <view class="training-count">其中训练步骤完成{{trainingCompleted}} / {{trainingTotal}}项</view>
+  </view>
+  <view class="metric-grid">
+    <view class="card metric"><view class="metric-number">{{streak}}<text>天</text></view><view class="metric-label">当前连续执行</view></view>
+    <view class="card metric"><view class="metric-number">{{activeDays}}<text>天</text></view><view class="metric-label">区间执行天数</view></view>
+  </view>
+  <view class="field-help streak-help">连续执行截至今天，今天尚未完成时查看截至昨天的连续天数。区间执行天数按下方历史日期范围统计；跳过、延期和中止不算完成。</view>
+
+  <view class="section-heading">本周每日执行</view>
+  <view wx:if="{{!days.length}}" class="card empty-state">这一周还没有可统计的日期。</view>
   <view wx:for="{{days}}" wx:key="date" class="day card">
     <view class="day-heading"><text>{{item.label}} · {{item.date}}</text><text class="count">{{item.completed}}/{{item.total}}</text></view>
     <view class="day-progress"><view class="day-progress-fill" style="width: {{item.percent}}%;"></view></view>
   </view>
-  <view class="tip">工作时间等固定占用块不会计入完成率。未记录的任务不会被自动标记完成。</view>
+
+  <view class="section-heading">历史记录</view>
+  <view class="card history-filter">
+    <view class="form-grid">
+      <view class="history-date"><label class="field-label">开始日期</label><picker mode="date" value="{{fromDate}}" bindchange="onHistoryFromChange"><view class="form-picker">{{fromDate}}　⌄</view></picker></view>
+      <view class="history-date"><label class="field-label">结束日期</label><picker mode="date" value="{{toDate}}" bindchange="onHistoryToChange"><view class="form-picker">{{toDate}}　⌄</view></picker></view>
+    </view>
+    <button class="button-secondary history-apply" bindtap="onApplyHistoryRange">查看这段时间</button>
+  </view>
+  <view class="history-count">共{{historyCount}}天记录</view>
+  <view wx:if="{{!historyDays.length}}" class="card empty-state">这段时间还没有执行记录。完成一件小事，就会留下第一笔。</view>
+  <view wx:for="{{historyDays}}" wx:key="date" class="card history-day">
+    <view class="day-heading"><text>{{item.label}} · {{item.date}}</text><text class="count">{{item.completed}}/{{item.total}}项完成</text></view>
+    <view class="day-progress"><view class="day-progress-fill" style="width: {{item.percent}}%;"></view></view>
+    <view class="history-day-footer"><text>训练{{item.trainingCompleted}} / {{item.trainingTotal}}项</text><button class="history-details" data-date="{{item.date}}" bindtap="onOpenHistoryDay">查看详情</button></view>
+  </view>
+  <view wx:if="{{historyRecords.length}}" class="section-heading">真实执行明细</view>
+  <view wx:if="{{historyRecords.length}}" class="field-help history-limit">显示所选日期范围内最近50条记录。</view>
+  <view wx:for="{{historyRecords}}" wx:for-item="record" wx:key="recordKey" class="card history-record">
+    <view class="record-heading"><text class="record-date">{{record.date}}</text><text class="record-status">{{record.statusLabel}}</text></view>
+    <view class="record-title">{{record.title}}</view>
+    <view class="actual-time"><text>实际开始</text><text>{{record.actualStartLabel}}</text></view>
+    <view class="actual-time"><text>实际结束</text><text>{{record.actualFinishLabel}}</text></view>
+    <view wx:if="{{record.deferredTo}}" class="record-note">延期至{{record.deferredTo}}，原日记录保留。</view>
+    <view wx:if="{{record.feedbackLabel}}" class="record-feedback">{{record.feedbackLabel}}</view>
+    <button class="record-events-toggle" data-id="{{record.recordKey}}" bindtap="onToggleHistoryRecord">{{record.expanded ? '收起状态变化' : '查看状态变化'}} · {{record.eventCount}}次</button>
+    <view wx:if="{{record.expanded}}" class="record-events">
+      <view wx:for="{{record.events}}" wx:for-item="event" wx:key="id" class="record-event"><view>{{event.fromLabel}} → {{event.toLabel}}</view><view class="event-time">{{event.atLabel}}</view><view wx:if="{{event.reason}}" class="event-reason">{{event.reason}}</view></view>
+      <view wx:if="{{!record.events.length}}" class="field-help">这条记录尚无状态变化。</view>
+    </view>
+  </view>
+  <view class="tip">固定占用时间不计入完成率。历史记录保留当时的安排，未记录的任务不会自动记为完成。</view>
 </view>

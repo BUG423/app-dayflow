@@ -1,15 +1,46 @@
-.stats { padding-top: 48rpx; }
-.eyebrow { color: #278078; letter-spacing: 5rpx; font-size: 20rpx; font-weight: 800; margin-bottom: 13rpx; }
-.stats .page-title { margin-bottom: 11rpx; }
-.overview { margin-top: 34rpx; background: #E9F4F0; }
-.overview-label { color: #52847A; font-size: 25rpx; }
-.overview-number { font-weight: 760; font-size: 88rpx; line-height: 1.5; color: #277970; }
-.percent-sign { font-size: 36rpx; }
-.progress-track, .day-progress { border-radius: 20rpx; background: #DAE9E5; height: 12rpx; overflow: hidden; }
-.progress-track { margin-top: 30rpx; }
-.progress-fill, .day-progress-fill { background: #277970; height: 100%; }
-.day { margin-bottom: 14rpx; }
-.day-heading { display: flex; justify-content: space-between; margin-bottom: 20rpx; font-size: 25rpx; font-weight: 620; }
-.count { color: #8A9DA2; font-weight: 400; }
-.day-progress { height: 9rpx; background: #ECF1F1; }
-.tip { color: #8FA1A5; font-size: 23rpx; line-height: 1.7; padding: 15rpx; }
+.stats { padding-top: 24px; }
+.stats .page-title { margin-bottom: 8px; }
+.overview { margin-top: 20px; background: #E8F3EE; border-color: #E8F3EE; }
+.overview-label { color: #527C71; font-size: 14px; }
+.overview-number { font-weight: 700; font-size: 48px; line-height: 1.4; color: #28786E; margin-top: 8px; }
+.percent-sign { font-size: 23px; }
+.progress-track, .day-progress { border-radius: 8px; background: #D2E5DC; height: 7px; overflow: hidden; }
+.progress-track { margin-top: 18px; }
+.progress-fill, .day-progress-fill { background: #28786E; height: 100%; }
+.day { margin-bottom: 10px; }
+.day-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
+.count { color: #6E8486; font-weight: 400; flex-shrink: 0; }
+.day-progress { height: 6px; background: #EAF0ED; }
+.tip { color: #6A8082; font-size: 13px; line-height: 1.8; padding: 8px 4px; }
+.week-navigation { display: flex; align-items: center; gap: 4px; margin-top: 16px; }
+.week-control { width: 44px; height: 44px; flex-shrink: 0; padding: 0; color: #53746B; background: transparent; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+.week-label { min-width: 0; flex: 1; color: #486C63; font-size: 14px; text-align: center; line-height: 1.6; }
+.current-week { min-height: 44px; padding: 10px; flex-shrink: 0; color: #286F67; background: #E7F0EB; border-radius: 10px; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.training-count { font-size: 13px; color: #557C72; margin-top: 12px; }
+.metric-grid { display: flex; gap: 12px; }
+.metric { flex: 1; min-width: 0; text-align: center; margin-bottom: 0; padding: 14px 10px; }
+.metric-number { color: #28786E; font-size: 28px; font-weight: 700; }
+.metric-number text { font-size: 13px; font-weight: 400; margin-left: 4px; }
+.metric-label { font-size: 13px; color: #6A8082; margin-top: 4px; }
+.streak-help { padding: 4px; margin-top: 8px; }
+.stats-error { margin-top: 12px; padding: 12px; color: #A1473D; background: #FFF1EF; border-radius: 10px; font-size: 14px; line-height: 1.7; }
+.form-grid { display: flex; gap: 12px; }
+.history-date { min-width: 0; flex: 1; }
+.history-apply { width: 100%; margin-top: 14px; }
+.history-count { color: #748A87; font-size: 13px; margin: 0 4px 10px; }
+.history-day-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; font-size: 13px; color: #6A8082; }
+.history-details { min-height: 44px; padding: 10px 4px 10px 10px; color: #286F67; font-size: 13px; background: transparent; display: flex; align-items: center; justify-content: center; }
+@media (max-width: 360px) { .week-navigation { gap: 0; } .form-grid { gap: 8px; } .form-picker { padding-left: 9px; padding-right: 9px; font-size: 14px; } }
+.history-limit { margin-bottom: 12px; }
+.record-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.record-date { color: #738A85; font-size: 13px; }
+.record-status { color: #286F67; font-size: 13px; background: #E8F3EF; padding: 3px 9px; border-radius: 12px; }
+.record-title { margin: 10px 0 12px; font-size: 16px; font-weight: 600; line-height: 1.6; overflow-wrap: break-word; }
+.actual-time { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 6px; color: #6A8082; font-size: 13px; }
+.actual-time text:last-child { text-align: right; }
+.record-note, .record-feedback { margin-top: 10px; font-size: 13px; color: #58776E; line-height: 1.8; overflow-wrap: break-word; }
+.record-events-toggle { width: 100%; margin-top: 12px; min-height: 44px; padding: 10px; border-radius: 10px; background: #EDF4EF; color: #286F67; font-size: 13px; }
+.record-events { margin-top: 12px; border-top: 1px solid #E2EBE5; }
+.record-event { padding: 10px 0; font-size: 14px; color: #4D7066; }
+.record-event + .record-event { border-top: 1px solid #EDF2EF; }
+.event-time, .event-reason { margin-top: 4px; font-size: 12px; color: #738A85; line-height: 1.8; }

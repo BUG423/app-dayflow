@@ -1,10 +1,30 @@
-.profile { padding-top: 48rpx; }
-.eyebrow { color: #278078; letter-spacing: 5rpx; font-size: 20rpx; font-weight: 800; margin-bottom: 12rpx; }
-.profile .page-title { margin-bottom: 10rpx; }
-.info { margin-top: 35rpx; }
-.row { display: flex; justify-content: space-between; padding: 14rpx 0; font-size: 25rpx; }
-.row + .row { border-top: 1rpx solid #F0F3F3; }
-.value { color: #87999E; }
-.control { display: flex; align-items: center; justify-content: space-between; color: #A25454; font-size: 26rpx; }
-.arrow { color: #ADB9BC; font-size: 35rpx; }
-.hint { color: #93A2A6; font-size: 23rpx; line-height: 1.7; padding: 5rpx 15rpx; margin-top: 8rpx; }
+.profile { padding-top: 24px; }
+.profile .page-title { margin-bottom: 8px; }
+.info { margin-top: 20px; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; font-size: 14px; min-height: 44px; }
+.row + .row { border-top: 1px solid #EDF1F0; }
+.value { color: #6E8486; text-align: right; min-width: 0; overflow-wrap: break-word; }
+.control { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #A1473D; font-size: 15px; min-height: 52px; }
+.arrow { color: #748A87; font-size: 24px; }
+.hint { color: #6A8082; font-size: 13px; line-height: 1.8; padding: 4px; margin-top: 8px; }
+.preferences-card .row:first-child, .phase-card .row:first-child, .sync-card .row:first-child { padding-top: 0; }
+.time-setting, .phase-setting { min-height: 44px; padding: 10px 8px; color: #286F67; background: transparent; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.minutes-setting { min-height: 44px; width: 88px; text-align: right; padding: 10px; border: 1px solid #CCDAD8; border-radius: 10px; color: #286F67; }
+.subscription-button, .save-phase-rules, .sync-now { margin-top: 16px; width: 100%; }
+.phase-rule { border-top: 1px solid #EDF1F0; margin-top: 16px; padding-top: 16px; }
+.phase-name { font-size: 16px; font-weight: 600; }
+.phase-rule .form-textarea { height: 92px; }
+.sync-state { color: #486E65; font-size: 14px; line-height: 1.7; margin-top: 6px; }
+.conflict-notice { color: #855F35; padding: 12px; background: #FFF4E5; border-radius: 10px; margin-top: 16px; font-size: 14px; line-height: 1.8; }
+.conflict-notice button { width: 100%; margin-top: 12px; }
+.feedback-message { padding: 12px 14px; color: #486E65; background: #E8F3EF; border-radius: 10px; font-size: 14px; line-height: 1.7; margin-top: 16px; }
+.reminder-preview { margin-top: 16px; border: 1px solid #CFE1D7; background: #F0F7F2; border-radius: 12px; padding: 14px; }
+.reminder-title { color: #286F67; font-size: 15px; font-weight: 600; }
+.reminder-name { margin-top: 8px; font-size: 14px; color: #3E5F57; line-height: 1.6; overflow-wrap: break-word; }
+.reminder-time { color: #6A8082; font-size: 13px; margin-top: 4px; line-height: 1.6; }
+.confirm-reminder { width: 100%; margin-top: 14px; }
+.reminder-jobs-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; font-size: 15px; font-weight: 600; }
+.refresh-reminders, .cancel-reminder { min-height: 44px; padding: 10px 6px; color: #286F67; background: transparent; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.reminder-job { border-top: 1px solid #E4ECE7; padding-top: 10px; margin-top: 8px; }
+.reminder-job-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #6A8082; font-size: 13px; min-height: 44px; }
+.reminder-limit { margin-top: 12px; }
