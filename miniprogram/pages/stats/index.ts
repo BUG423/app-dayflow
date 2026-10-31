@@ -15,7 +15,7 @@ Page({
         const action = getDayBlocks(record.date).reduce((all: any[], block) => all.concat(block.actions), []).find(item => item.id === record.targetId);
         const feedback = record.feedback;
         const feedbackLabel = feedback ? [feedback.effort ? '自选强度 ' + feedback.effort + '级' : '', feedback.discomfort === true ? '有不适反馈' : feedback.discomfort === false ? '用户未报告不适' : '', feedback.note || ''].filter(Boolean).join('；') : '';
-        return { recordKey: record.date + ':' + record.targetId, date: record.date, title: action ? action.title : '原计划事项', statusLabel: statusNames[record.status],
+        return { recordKey: record.date + ':' + record.targetId, date: record.date, title: action ? action.title : '原计划事项', status: record.status, statusLabel: statusNames[record.status],
           actualStartLabel: timeLabel(record.actualStartedAt), actualFinishLabel: timeLabel(record.finishedAt), feedbackLabel, deferredTo: record.deferredTo || '',
           eventCount: record.events.length, events: record.events.map(event => ({ id: event.id, fromLabel: statusNames[event.from], toLabel: statusNames[event.to], atLabel: timeLabel(event.at), reason: event.reason || '' })), expanded: false };
       });

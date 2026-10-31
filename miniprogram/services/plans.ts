@@ -21,11 +21,11 @@ function validated(value: any): PlanTemplate {
   if (!result.ok) throw new Error(result.errors.join('；'));
   return result.template;
 }
-function defaultTemplate(): PlanTemplate {
+function defaultTemplate(includeEveningWork = true): PlanTemplate {
   const schedules: Schedule[] = [];
   for (let weekday = 0; weekday < 7; weekday++) {
     const key = shiftDays('2026-11-01', weekday);
-    const blocks = getBlocksForDate(key).map(block => {
+    const blocks = getBlocksForDate(key).filter(block => includeEveningWork || block.id !== 'overtime').map(block => {
       const tasks: Task[] = block.kind === 'fixed' ? [] : block.kind === 'parallel'
         ? block.actions.map(action => ({ ...action, actions: [] }))
         : [{ id: 'training-task', title: block.title, start: block.start, end: block.end, actions: block.actions.map(action => ({ ...action })) }];
@@ -33,7 +33,11 @@ function defaultTemplate(): PlanTemplate {
     });
     schedules.push({ id: 'weekday-' + weekday, title: ['周日','周一','周二','周三','周四','周五','周六'][weekday] + '示例安排', weekdays: [weekday], effectiveFrom: '2000-01-01', exceptions: [], blocks });
   }
-  return { schemaVersion: 1, id: 'dayflow-plan', name: '每日示例计划', version: 1, updatedAt: 0, schedules };
+  return { schemaVersion: 1, id: 'dayflow-plan', name: '每日示例计划', version: includeEveningWork ? 2 : 1, updatedAt: 0, schedules };
+}
+/** Earlier records without a saved plan were created against the original built-in example. */
+function historicalTemplate(current: PlanTemplate): PlanTemplate {
+  return read(PLAN_KEY) === undefined ? defaultTemplate(false) : current;
 }
 export function getTemplate(): PlanTemplate {
   const value = read(PLAN_KEY);
@@ -92,7 +96,7 @@ function freezeRecorded(template: PlanTemplate, nextTemplate?: PlanTemplate) {
   const saved = instances();
   let changed = false;
   dates.forEach(date => {
-    if (!saved[date]) { saved[date] = build(date, template); changed = true; }
+    if (!saved[date]) { saved[date] = build(date, historicalTemplate(template)); changed = true; }
     if (!saved[date].locked) { saved[date].locked = true; changed = true; }
   });
   Object.keys(saved).forEach(date => {
@@ -107,6 +111,8 @@ function freezeRecorded(template: PlanTemplate, nextTemplate?: PlanTemplate) {
 export function getDailyInstance(date: string): DailyInstance {
   assertDate(date);
   const template = getTemplate(), saved = instances(), existing = saved[date];
+  const recorded = recordedDates().includes(date);
+  if (existing && recorded && !existing.locked) { existing.locked = true; wx.setStorageSync(INSTANCE_KEY, saved); return clone(existing); }
   if (existing && date < today() && !existing.locked) { existing.locked = true; wx.setStorageSync(INSTANCE_KEY, saved); return clone(existing); }
   if (existing && !existing.locked && existing.mode === 'emergency' && (existing.templateVersion !== template.version || existing.templateId !== template.id)) {
     saved[date] = rebaseEmergency(existing, template); wx.setStorageSync(INSTANCE_KEY, saved); return clone(saved[date]);
@@ -115,7 +121,9 @@ export function getDailyInstance(date: string): DailyInstance {
     if (!existing.locked && date < today()) { existing.locked = true; wx.setStorageSync(INSTANCE_KEY, saved); }
     return clone(existing);
   }
-  saved[date] = build(date, template);
+  const source = date < today() || recorded ? historicalTemplate(template) : template;
+  saved[date] = build(date, source);
+  if (recorded) saved[date].locked = true;
   wx.setStorageSync(INSTANCE_KEY, saved);
   return clone(saved[date]);
 }
@@ -133,6 +141,19 @@ export function getDayBlocks(date: string): PlanBlock[] {
   }));
 }
 export function getSnapshotDates(): string[] { return Object.keys(instances()).sort(); }
+export interface DateEditState {
+  locked: boolean;
+  reason: 'past' | 'recorded' | 'snapshot' | '';
+}
+/** Read-only eligibility check: selecting an editor date must not create a daily instance. */
+export function getDateEditState(date: string): DateEditState {
+  assertDate(date);
+  const saved = instances(), recorded = recordedDates();
+  if (date < today()) return { locked: true, reason: 'past' };
+  if (recorded.includes(date)) return { locked: true, reason: 'recorded' };
+  if (saved[date] && saved[date].locked) return { locked: true, reason: 'snapshot' };
+  return { locked: false, reason: '' };
+}
 export function getTemplateVersions(): PlanTemplate[] {
   const value = read(VERSIONS_KEY);
   if (value !== undefined && !Array.isArray(value)) throw new Error('计划版本数据损坏');
@@ -177,6 +198,8 @@ export function importTemplate(text: string, expectedVersion?: number): PlanTemp
   return saveTemplate(preview.template, expectedVersion);
 }
 export function exportTemplate(): string { return JSON.stringify(getTemplate(), null, 2); }
+/** Preview only: callers must use the ordinary validated import confirmation to apply it. */
+export function exportDefaultTemplate(): string { return JSON.stringify(defaultTemplate(), null, 2); }
 function hhmm(minute: number) { return String(Math.floor(minute / 60)).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0'); }
 export function setEmergencyPlan(date: string, enabled: boolean, blockId?: string): DailyInstance {
   assertDate(date);

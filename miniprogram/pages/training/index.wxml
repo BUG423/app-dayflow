@@ -63,9 +63,9 @@
       <view class="field-help">{{feedbackTargetTitle}}</view>
       <view class="form-field">
         <label class="field-label">{{isTrainingBlock ? '主观用力程度' : '主观投入程度'}}：{{feedbackEffort}} / 5</label>
-        <slider min="1" max="5" step="1" value="{{feedbackEffort}}" activeColor="#28786E" bindchange="onFeedbackEffortChange" aria-label="{{isTrainingBlock ? '主观用力程度' : '主观投入程度'}}" />
+        <slider min="1" max="5" step="1" value="{{feedbackEffort}}" activeColor="#6D28D9" bindchange="onFeedbackEffortChange" aria-label="{{isTrainingBlock ? '主观用力程度' : '主观投入程度'}}" />
       </view>
-      <view class="feedback-switch"><text>本次有不适感</text><switch checked="{{feedbackDiscomfort}}" color="#28786E" bindchange="onFeedbackDiscomfortChange" aria-label="本次有不适感" /></view>
+      <view class="feedback-switch"><text>本次有不适感</text><switch checked="{{feedbackDiscomfort}}" color="#2563EB" bindchange="onFeedbackDiscomfortChange" aria-label="本次有不适感" /></view>
       <view wx:if="{{feedbackDiscomfort && isTrainingBlock}}" class="action-safety">请停止或降低强度，并请专业人员审核；无需勉强完成。</view>
       <view wx:if="{{feedbackDiscomfort && !isTrainingBlock}}" class="field-help">可以暂停或调整安排，无需勉强完成。</view>
       <view class="form-field">

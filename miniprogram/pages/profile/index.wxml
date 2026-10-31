@@ -1,60 +1,53 @@
 <view class="page profile">
-  <view class="page-title">我的设置</view>
-  <view class="subtle">提醒、训练阶段和数据，都由你决定。</view>
-  <view class="card info">
-    <view class="row"><text>版本</text><text class="value">{{version}}</text></view>
-    <view class="row"><text>数据存储</text><text class="value">{{storage}}</text></view>
-  </view>
-
-  <view class="section-heading">提醒偏好</view>
-  <view class="card preferences-card">
-    <view class="row"><text>睡眠提醒</text><switch class="sleep-reminder" checked="{{preferences.sleepReminderEnabled}}" color="#28786E" bindchange="onSleepReminderChange" aria-label="睡眠提醒" /></view>
-    <view class="row"><text>准备睡觉的时间</text><picker mode="time" value="{{preferences.sleepTime}}" bindchange="onSleepTimeChange"><view class="time-setting">{{preferences.sleepTime}}　⌄</view></picker></view>
-    <view class="row"><text>任务开始提醒</text><switch class="task-reminder" checked="{{preferences.taskReminderEnabled}}" color="#28786E" bindchange="onTaskReminderChange" aria-label="任务开始提醒" /></view>
-    <view class="row"><text>提前提醒（分钟）</text><input class="minutes-setting" type="number" value="{{preferences.leadMinutes}}" bindchange="onLeadMinutesChange" maxlength="3" aria-label="任务提前提醒分钟数" /></view>
-    <view class="field-help">保存时间只代表你的偏好，后台通知还需要可用的订阅消息和你的授权。</view>
-    <button class="button-secondary subscription-button" disabled="{{reminderBusy}}" loading="{{reminderBusy}}" bindtap="onRequestSubscription">查看下一条提醒</button>
-    <view wx:if="{{reminderPreview}}" class="reminder-preview">
-      <view class="reminder-title">确认本次提醒</view>
-      <view class="reminder-name">{{reminderPreview.title}}</view>
-      <view class="reminder-time">{{reminderPreview.dateKey}} · {{reminderPreview.time}}</view>
-      <view class="field-help">请先核对日期和内容，再选择是否授权。</view>
-      <button class="button-primary confirm-reminder" disabled="{{reminderBusy}}" loading="{{reminderBusy}}" bindtap="onConfirmReminderSubscription">确认并订阅本次提醒</button>
+  <view class="page-title">我的</view>
+  <view class="subtle">把日程调成适合自己的节奏。</view>
+  <view class="card settings-group">
+    <view class="profile-section" data-section="reminders" bindtap="onToggleSection" aria-role="button" aria-label="提醒设置" aria-expanded="{{expandedSection === 'reminders'}}"><view class="section-copy"><view class="setting-title">提醒设置</view><view class="setting-summary">{{preferences.sleepReminderEnabled || preferences.taskReminderEnabled ? '已开启前台提醒' : '暂未开启'}}</view></view><text class="section-chevron">{{expandedSection === 'reminders' ? '⌃' : '›'}}</text></view>
+    <view wx:if="{{expandedSection === 'reminders'}}" class="section-content preferences-card">
+      <view class="row"><text>睡眠提醒</text><switch class="sleep-reminder" checked="{{preferences.sleepReminderEnabled}}" color="#2563EB" bindchange="onSleepReminderChange" aria-label="睡眠提醒" /></view>
+      <view class="row"><text>准备睡觉的时间</text><picker mode="time" value="{{preferences.sleepTime}}" bindchange="onSleepTimeChange"><view class="time-setting">{{preferences.sleepTime}}　⌄</view></picker></view>
+      <view class="row"><text>任务开始提醒</text><switch class="task-reminder" checked="{{preferences.taskReminderEnabled}}" color="#2563EB" bindchange="onTaskReminderChange" aria-label="任务开始提醒" /></view>
+      <view class="row"><text>提前提醒</text><view class="minutes-control"><input class="minutes-setting" type="number" value="{{preferences.leadMinutes}}" bindchange="onLeadMinutesChange" maxlength="3" aria-label="任务提前提醒分钟数" /><text>分钟</text></view></view>
+      <view class="field-help">打开小程序时检查提醒。后台提醒需要你另外授权。</view>
+      <view wx:if="{{sync.configured}}" class="background-reminders">
+        <button class="button-secondary subscription-button" disabled="{{reminderBusy}}" loading="{{reminderBusy}}" bindtap="onRequestSubscription">设置一条后台提醒</button>
+        <view wx:if="{{reminderPreview}}" class="reminder-preview"><view class="reminder-title">确认本次提醒</view><view class="reminder-name">{{reminderPreview.title}}</view><view class="reminder-time">{{reminderPreview.dateKey}} · {{reminderPreview.time}}</view><button class="button-primary confirm-reminder" disabled="{{reminderBusy}}" loading="{{reminderBusy}}" bindtap="onConfirmReminderSubscription">确认并订阅本次提醒</button></view>
+        <view class="reminder-jobs-heading"><text>已登记的提醒</text><button class="refresh-reminders" disabled="{{reminderBusy}}" bindtap="onRefreshReminderJobs">刷新</button></view>
+        <view wx:if="{{!reminderJobs.length}}" class="field-help">暂无已登记提醒。</view>
+        <view wx:for="{{reminderJobs}}" wx:key="id" class="reminder-job"><view class="reminder-name">{{item.title}}</view><view class="reminder-time">{{item.dateKey}} · {{item.time}}</view><view class="reminder-job-status"><text>{{item.statusText}}</text><button wx:if="{{item.canCancel}}" class="cancel-reminder" disabled="{{reminderBusy}}" data-id="{{item.id}}" bindtap="onCancelReminder">取消这条提醒</button></view></view>
+        <view class="field-help reminder-limit">一次授权对应一次提醒。改动日程后，请取消旧提醒再重新设置。</view>
+      </view>
+      <view wx:else class="field-help offline-reminder-help">后台提醒尚未开通，前台提醒可以照常使用。</view>
     </view>
-    <view class="reminder-jobs-heading"><text>已登记的提醒</text><button class="refresh-reminders" disabled="{{reminderBusy}}" bindtap="onRefreshReminderJobs">刷新</button></view>
-    <view wx:if="{{!reminderJobs.length}}" class="field-help">暂无可显示的已登记提醒。</view>
-    <view wx:for="{{reminderJobs}}" wx:key="id" class="reminder-job">
-      <view class="reminder-name">{{item.title}}</view>
-      <view class="reminder-time">{{item.dateKey}} · {{item.time}}</view>
-      <view class="reminder-job-status"><text>{{item.statusText}}</text><button wx:if="{{item.canCancel}}" class="cancel-reminder" disabled="{{reminderBusy}}" data-id="{{item.id}}" bindtap="onCancelReminder">取消这条提醒</button></view>
+  </view>
+  <view class="card settings-group training-group">
+    <view class="profile-section" data-section="training" bindtap="onToggleSection" aria-role="button" aria-label="训练偏好" aria-expanded="{{expandedSection === 'training'}}"><view class="section-copy"><view class="setting-title">训练偏好</view><view class="setting-summary">当前阶段：{{preferences.trainingPhase || '基础'}}</view></view><text class="section-chevron">{{expandedSection === 'training' ? '⌃' : '›'}}</text></view>
+    <view wx:if="{{expandedSection === 'training'}}" class="section-content phase-card">
+      <view class="row"><text>当前阶段</text><button class="phase-setting" bindtap="onChoosePhase">{{preferences.trainingPhase || '基础'}}　⌄</button></view>
+      <view class="field-help">按自身情况选择，不会自动提高训练强度。</view>
+      <button class="button-secondary phase-rules-toggle" bindtap="onTogglePhaseRules">{{phaseRulesVisible ? '收起阶段目标' : '编辑阶段目标'}}</button>
+      <view wx:if="{{phaseRulesVisible}}" class="phase-rules-editor">
+        <view wx:for="{{phaseRuleDrafts}}" wx:key="id" class="phase-rule"><view class="phase-name">{{item.name}}</view><view class="form-field"><label class="field-label">参考执行次数</label><input class="form-input" type="number" value="{{item.minSessions}}" data-id="{{item.id}}" data-field="minSessions" bindinput="onPhaseRuleChange" maxlength="5" /></view><view class="form-field"><label class="field-label">阶段说明</label><textarea class="form-textarea" value="{{item.description}}" data-id="{{item.id}}" data-field="description" bindinput="onPhaseRuleChange" maxlength="240" placeholder="按自己的节奏设置阶段目标" /></view></view>
+        <button class="button-secondary save-phase-rules" bindtap="onSavePhaseRules">保存阶段目标</button>
+      </view>
+      <view class="field-help">出现不适时可停止或降低强度，并请专业人员审核。</view>
     </view>
-    <view class="field-help reminder-limit">仅登记本次提醒；前台开关不会取消已登记提醒；修改日程后需取消并重新登记。</view>
   </view>
-
-  <view class="section-heading">训练阶段</view>
-  <view class="card phase-card">
-    <view class="row"><text>当前阶段</text><button class="phase-setting" bindtap="onChoosePhase">{{preferences.trainingPhase || '基础'}}　⌄</button></view>
-    <view class="field-help">参考次数仅作提示，阶段由你自行选择，不会强制解锁或要求完成。</view>
-    <view wx:for="{{phaseRuleDrafts}}" wx:key="id" class="phase-rule">
-      <view class="phase-name">{{item.name}}</view>
-      <view class="form-field"><label class="field-label">参考执行次数</label><input class="form-input" type="number" value="{{item.minSessions}}" data-id="{{item.id}}" data-field="minSessions" bindinput="onPhaseRuleChange" maxlength="5" /></view>
-      <view class="form-field"><label class="field-label">阶段说明</label><textarea class="form-textarea" value="{{item.description}}" data-id="{{item.id}}" data-field="description" bindinput="onPhaseRuleChange" maxlength="240" placeholder="按自己的节奏设置阶段目标" /></view>
+  <view class="card settings-group">
+    <view class="profile-section" data-section="data" bindtap="onToggleSection" aria-role="button" aria-label="数据与同步" aria-expanded="{{expandedSection === 'data'}}"><view class="section-copy"><view class="setting-title">数据与同步</view><view class="setting-summary">{{sync.configured ? (sync.enabled ? '已开启云端同步' : '云端同步未开启') : '记录保存在本机'}}</view></view><text class="section-chevron">{{expandedSection === 'data' ? '⌃' : '›'}}</text></view>
+    <view wx:if="{{expandedSection === 'data'}}" class="section-content sync-card">
+      <view wx:if="{{sync.configured}}" class="row"><text>云端同步</text><switch class="sync-switch" checked="{{sync.enabled}}" color="#2563EB" bindchange="onToggleSync" aria-label="云端同步" /></view>
+      <view class="sync-state">{{sync.configured ? syncText : '本机记录可正常使用'}}</view>
+      <view class="field-help">{{sync.configured ? '由你选择是否开启，同步内容仅属于自己的账户。' : '云端功能就绪后，可在这里选择同步。请勿清除小程序数据，以免丢失本机记录。'}}</view>
+      <button wx:if="{{sync.configured && sync.enabled}}" class="button-secondary sync-now" loading="{{sync.pending}}" disabled="{{sync.pending}}" bindtap="onSyncNow">立即同步</button>
+      <view wx:if="{{sync.conflict}}" class="conflict-notice"><view>两份记录均已保留，请选择使用哪一份。</view><button class="button-secondary" bindtap="onResolveConflict">选择要保留的内容</button></view>
+      <button class="data-management-toggle" bindtap="onToggleRecordManagement">{{recordManagementVisible ? '收起记录管理' : '管理本机记录'}}<text>›</text></button>
+      <view wx:if="{{recordManagementVisible}}" class="record-management"><view class="control" bindtap="onClearRecords" aria-role="button" aria-label="重置当前执行记录"><text>重置当前执行记录</text><text class="section-chevron">›</text></view><view class="field-help">仅重置任务状态、执行事件和反馈。计划、照片和同步副本保留，操作前请仔细确认。</view></view>
     </view>
-    <button class="button-secondary save-phase-rules" bindtap="onSavePhaseRules">保存阶段规则</button>
-    <view class="field-help">出现不适时可停止或降低强度，并请专业人员审核。</view>
   </view>
-
-  <view class="section-heading">数据同步</view>
-  <view class="card sync-card">
-    <view class="row"><text>云端同步</text><switch class="sync-switch" checked="{{sync.enabled}}" disabled="{{!sync.configured}}" color="#28786E" bindchange="onToggleSync" aria-label="云端同步" /></view>
-    <view class="sync-state">{{sync.configured ? syncText : '尚未连接云端'}}</view>
-    <view class="field-help">{{sync.configured ? '开启前会征求你的同意。同步记录只属于你自己的账户。' : '目前可以继续使用本机记录，云端连接就绪后再选择是否开启。'}}</view>
-    <button wx:if="{{sync.configured && sync.enabled}}" class="button-secondary sync-now" loading="{{sync.pending}}" disabled="{{sync.pending}}" bindtap="onSyncNow">立即同步</button>
-    <view wx:if="{{sync.conflict}}" class="conflict-notice"><view>发现两份不同的记录，已为你保留副本。</view><button class="button-secondary" bindtap="onResolveConflict">选择要保留的内容</button></view>
+  <view class="card settings-group">
+    <view class="profile-section" data-section="about" bindtap="onToggleSection" aria-role="button" aria-label="关于与隐私" aria-expanded="{{expandedSection === 'about'}}"><view class="section-copy"><view class="setting-title">关于与隐私</view><view class="setting-summary">数据用途与使用说明</view></view><text class="section-chevron">{{expandedSection === 'about' ? '⌃' : '›'}}</text></view>
+    <view wx:if="{{expandedSection === 'about'}}" class="section-content about-card"><view class="privacy-copy">计划和执行记录默认保存在本机。照片由你主动选择，只有你选择上传时才会发送到云端。</view><view class="privacy-copy">移除照片关联不会删除相册原图或云端照片，应用保存的副本仍可能占用本机空间。</view><view class="privacy-copy">训练内容是可调整的示例，不是医疗处方。</view><view class="row version-row"><text>版本</text><text class="value">{{version}}</text></view></view>
   </view>
-
-  <view wx:if="{{feedbackText}}" class="feedback-message">{{feedbackText}}</view>
-  <view class="section-heading">数据管理</view>
-  <view class="card control" bindtap="onClearRecords" aria-role="button" aria-label="重置当前执行记录"><text>重置当前执行记录</text><text class="arrow">›</text></view>
-  <view class="hint">不会移除计划、照片或同步副本；可从已保留副本恢复。移除照片关联不会删除来源相册或云端照片。</view>
+  <view wx:if="{{feedbackText}}" class="feedback-message" aria-role="status">{{feedbackText}}</view>
 </view>

@@ -5,9 +5,10 @@ const event = (data, value) => ({ currentTarget: { dataset: data }, detail: { va
 
 test('计划页原生字段可创建并修改规则，确认删除后移除未来规则', () => {
   const runtime = createRuntime(), page = runtime.page('plans'); page.onShow(); page.onCreateSchedule();
+  page.onToggleAdvanced();
   page.onEditorInput(event({ field: 'scheduleTitle' }, '晚间练习'));
   page.onEditorInput(event({ field: 'title' }, '自主练习'));
-  page.onAddAction(); page.onActionInput(event({ index: 0, field: 'title' }, '练习一'));
+  page.onActionInput(event({ index: 0, field: 'title' }, '练习一'));
   page.onActionInput(event({ index: 0, field: 'description' }, '自主选择内容'));
   page.onSaveSchedule();
   const plans = runtime.load('miniprogram/services/plans.ts');
@@ -23,14 +24,15 @@ test('计划页原生字段可创建并修改规则，确认删除后移除未�
 test('编辑多时间块及含步骤的并行任务时不会丢弃其它块、任务分组或说明', () => {
   const runtime = createRuntime(), plans = runtime.load('miniprogram/services/plans.ts');
   const template = clone(plans.getTemplate());
+  const initialVersion = template.version;
   const schedule = template.schedules.find(s => s.weekdays.includes(6));
   const music = schedule.blocks.find(b => b.id === 'music');
   music.tasks[0].actions = [{ id: 'guitar-step', title: '和弦练习', start: '12:05', end: '12:35', description: '逐步练习' }];
-  plans.saveTemplate(template, 1);
+  plans.saveTemplate(template, initialVersion);
   const page = runtime.page('plans'); page.onShow(); page.onEditSchedule(event({ id: schedule.id }));
   page.onEditorBlockChange(event({}, 1)); page.onEditorInput(event({ field: 'title' }, '午间练习')); page.onSaveSchedule();
   const saved = plans.getTemplate().schedules.find(s => s.id === schedule.id);
-  assert.equal(saved.blocks.length, 5); assert.equal(saved.blocks[3].id, 'training');
+  assert.equal(saved.blocks.length, schedule.blocks.length); assert.equal(saved.blocks[3].id, 'training');
   assert.equal(saved.blocks[1].tasks.length, 2); assert.equal(saved.blocks[1].tasks[0].actions[0].id, 'guitar-step');
   assert.equal(saved.blocks[1].tasks[0].actions[0].description, '逐步练习');
 });
@@ -38,11 +40,12 @@ test('编辑多时间块及含步骤的并行任务时不会丢弃其它块、�
 test('导入必须先重新校验且经用户确认，取消确认不改模板', () => {
   const runtime = createRuntime(), page = runtime.page('plans'); page.onShow();
   const plans = runtime.load('miniprogram/services/plans.ts'), candidate = clone(plans.getTemplate()); candidate.name = '导入计划';
+  const initialVersion = candidate.version;
   page.onImportInput(event({}, JSON.stringify(candidate))); page.onPreviewImport(); assert.equal(page.data.importPreview.ok, true);
-  assert.equal(plans.getTemplate().version, 1);
-  page.onConfirmImport(); runtime.calls.modals.at(-1).success({ confirm: false }); assert.equal(plans.getTemplate().version, 1);
-  page.onConfirmImport(); runtime.calls.modals.at(-1).success({ confirm: true }); assert.equal(plans.getTemplate().version, 2);
-  page.onImportInput(event({}, '{bad')); page.onConfirmImport(); assert.equal(plans.getTemplate().version, 2);
+  assert.equal(plans.getTemplate().version, initialVersion);
+  page.onConfirmImport(); runtime.calls.modals.at(-1).success({ confirm: false }); assert.equal(plans.getTemplate().version, initialVersion);
+  page.onConfirmImport(); runtime.calls.modals.at(-1).success({ confirm: true }); assert.equal(plans.getTemplate().version, initialVersion + 1);
+  page.onImportInput(event({}, '{bad')); page.onConfirmImport(); assert.equal(plans.getTemplate().version, initialVersion + 1);
 });
 
 test('当日替换例外使用当前编辑内容，不同时覆盖基础规则', () => {
@@ -72,9 +75,9 @@ test('延期安排编辑保留来源关联，切换类型会明确拒绝，重�
 test('编辑草稿固定打开时版本，后台更新后返回页面也不能用旧草稿覆盖新版本', () => {
   const runtime = createRuntime(), page = runtime.page('plans'); page.onShow(); page.onEditSchedule(event({ id: 'weekday-6' }));
   page.onEditorInput(event({ field: 'scheduleTitle' }, '旧草稿标题'));
-  const plans = runtime.load('miniprogram/services/plans.ts'), next = clone(plans.getTemplate()); next.name = '另一个入口更新'; plans.saveTemplate(next, 1);
-  page.onShow(); assert.equal(page.data.templateVersion, 2);
+  const plans = runtime.load('miniprogram/services/plans.ts'), next = clone(plans.getTemplate()), initialVersion = next.version; next.name = '另一个入口更新'; plans.saveTemplate(next, initialVersion);
+  page.onShow(); assert.equal(page.data.templateVersion, initialVersion + 1);
   page.onSaveSchedule();
-  assert.equal(plans.getTemplate().version, 2); assert.notEqual(plans.getTemplate().schedules.find(s => s.id === 'weekday-6').title, '旧草稿标题');
+  assert.equal(plans.getTemplate().version, initialVersion + 1); assert.notEqual(plans.getTemplate().schedules.find(s => s.id === 'weekday-6').title, '旧草稿标题');
   assert.match(page.data.errorMessage, /已更新/); assert.equal(page.data.editorVisible, true);
 });

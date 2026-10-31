@@ -7,21 +7,16 @@
     <view class="today-jump" bindtap="onToday" aria-role="button" aria-label="回到今天"><text class="today-jump-label">今天</text></view>
   </view>
 
-  <view class="calendar card">
-    <view class="week-title">
-      <text class="week-name">{{dayTitle}}</text>
-      <view class="week-arrows">
-        <button class="week-arrow" size="mini" data-delta="-1" bindtap="onShiftWeek" aria-label="上一周">‹</button>
-        <button class="week-arrow" size="mini" data-delta="1" bindtap="onShiftWeek" aria-label="下一周">›</button>
-      </view>
-    </view>
+  <view class="calendar card" bindtouchstart="onCalendarTouchStart" bindtouchmove="onCalendarTouchMove" bindtouchend="onCalendarTouchEnd" bindtouchcancel="onCalendarTouchCancel">
     <view class="weekday-row">
-      <view wx:for="{{week}}" wx:key="date" class="weekday {{item.selected ? 'active' : ''}}" data-date="{{item.date}}" bindtap="onChooseDay">
+      <view wx:for="{{week}}" wx:key="date" class="weekday {{item.selected ? 'active' : ''}}" data-date="{{item.date}}" bindtap="onChooseDay" aria-role="button" aria-label="{{item.date}}{{item.selected ? '，已选中' : ''}}">
+        <text class="weekday-month">{{item.monthLabel}}</text>
         <text class="weekday-label">{{item.label}}</text>
         <text class="weekday-number">{{item.day}}</text>
         <view class="today-dot {{item.isToday ? 'visible' : ''}}"></view>
       </view>
     </view>
+    <view class="calendar-hint">左右滑动换周，点击日期查看</view>
   </view>
 
   <view class="focus card">
@@ -47,7 +42,7 @@
         <text class="time-end">{{block.end}}</text>
       </view>
       <view class="timeline-mark"><view class="node {{block.stateText ? 'node-accent' : ''}}"></view><view class="timeline-line"></view></view>
-      <view class="block-card {{block.kind === 'fixed' ? 'block-fixed' : ''}}">
+      <view class="block-card category-{{block.colorCategory}} {{block.kind === 'fixed' ? 'block-fixed' : ''}}">
         <view class="block-header" data-id="{{block.id}}" bindtap="onToggleBlock">
           <view class="block-titles">
             <view class="block-title">{{block.title}}</view>

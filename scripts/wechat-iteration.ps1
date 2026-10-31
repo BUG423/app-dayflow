@@ -6,6 +6,12 @@ param(
   [ValidateSet('Environment','Validate','Restore','Poll')][string]$Mode = 'Validate',
   [string]$RunDirectory
 )
+if ($Mode -eq 'Validate') {
+  # The current UI no longer has week arrows or an always-expanded editor.
+  # Old Restore/Poll modes below still own their original multi-key backups.
+  & (Join-Path $PSScriptRoot 'wechat-ux.ps1') -Project $Project -WechatIde $WechatIde -Mode Validate -RunDirectory $RunDirectory
+  exit $LASTEXITCODE
+}
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $script:Project = (Resolve-Path -LiteralPath $Project).Path

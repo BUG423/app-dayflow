@@ -6,6 +6,7 @@ import { STATUS_LABELS, elapsedSeconds, durationText, errorText } from '../../se
 import { TaskStatus } from '../../types/domain';
 import { localDateKey, parseLocalDate, weekDays, shiftDays, minuteOfDate, timeState } from '../../utils/calendar';
 import { progress, blockProgress } from '../../utils/progress';
+import { beginCalendarGesture, calendarGestureCancelled, calendarSwipeDays, CalendarGesture } from '../../utils/calendar-gesture';
 
 type UIBlock = Omit<PlanBlock, 'actions'> & { expanded: boolean; stateText: string; doneCount: number; totalCount: number; actions: any[] };
 const STATES: TaskStatus[] = ['doing', 'done', 'skipped', 'deferred', 'aborted', 'todo'];
@@ -15,6 +16,8 @@ Page({
   clockTimer: null as ReturnType<typeof setInterval> | null,
   lastToday: '', lastClockMinute: '', reviewShownInSession: '',
   shownReminderKeys: {} as Record<string, boolean>,
+  calendarGesture: null as CalendarGesture | null,
+  suppressDayTapUntil: 0,
   data: {
     selectedDate: '', dayTitle: '', week: [] as any[], blocks: [] as UIBlock[], expandedBlock: '',
     isToday: true, heroCaption: '此刻的安排', heroTitle: '加载中', heroTime: '', doneLabel: '0 / 0',
@@ -28,8 +31,8 @@ Page({
     this.showYesterdayRecap(today);
     this.stopClock(); this.clockTimer = setInterval(() => this.updateClock(), 1000);
   },
-  onHide() { this.stopClock(); },
-  onUnload() { this.stopClock(); },
+  onHide() { this.stopClock(); this.onCalendarTouchCancel(); },
+  onUnload() { this.stopClock(); this.onCalendarTouchCancel(); },
   stopClock() { if (this.clockTimer !== null) clearInterval(this.clockTimer); this.clockTimer = null; },
   updateClock() {
     const now = new Date(), today = localDateKey(now), clockMinute = today + ':' + minuteOfDate(now);
@@ -69,6 +72,7 @@ Page({
       const blocks: UIBlock[] = raw.map(block => {
         const count = blockProgress(block, records), state = date === today ? timeState(block.start, block.end, now) : '';
         return { ...block,
+          colorCategory: block.category === '加班' || block.title === '加班' ? 'overtime' : block.category === '训练' ? 'training' : block.category === '兴趣' ? 'interest' : block.category === '工作' ? 'work' : 'life',
           actions: block.actions.map(action => ({ ...action, done: records[action.id] === 'done',
             status: records[action.id] || 'todo', statusText: STATUS_LABELS[records[action.id] || 'todo'],
             deferredTo: details[action.id]?.deferredTo || '',
@@ -92,7 +96,8 @@ Page({
       this.setData({
         selectedDate: date, isToday: date === today, loadError: '',
         dayTitle: date.slice(5).replace('-', '月') + '日 · ' + getWeekdayName(date),
-        week: weekDays(date).map((item: any) => ({ ...item, selected: item.date === date, isToday: item.date === today })),
+        week: weekDays(date).map((item: any, index: number) => ({ ...item, selected: item.date === date, isToday: item.date === today,
+          monthLabel: index === 0 || item.day === 1 ? Number(item.date.slice(5, 7)) + '月' : '' })),
         blocks, doneLabel: total.completed + ' / ' + total.total, percent: total.percent,
         heroCaption: running ? '正在执行' : current ? '此刻正在进行' : next ? '接下来' : date !== today ? '查看这一天' : '今天的日程已结束',
         heroTitle: running ? running.title : focus ? focus.title : date !== today ? '按时间完成每项计划' : '好好休息',
@@ -102,7 +107,17 @@ Page({
       this.setData({ loadError: errorText(err), heroTitle: '暂时无法读取日程', heroCaption: '请稍后重试', heroTime: '', blocks: [], doneLabel: '—', percent: 0 });
     }
   },
-  onChooseDay(e: any) { this.choose(String(e.currentTarget.dataset.date)); },
+  onChooseDay(e: any) { if (Date.now() < this.suppressDayTapUntil) return; this.choose(String(e.currentTarget.dataset.date)); },
+  onCalendarTouchStart(e: any) { this.calendarGesture = beginCalendarGesture(e.touches, Date.now()); },
+  onCalendarTouchMove(e: any) { if (calendarGestureCancelled(this.calendarGesture, e.touches)) this.calendarGesture = null; },
+  onCalendarTouchCancel() { this.calendarGesture = null; this.suppressDayTapUntil = 0; },
+  onCalendarTouchEnd(e: any) {
+    const gesture = this.calendarGesture; this.calendarGesture = null;
+    const days = calendarSwipeDays(gesture, e.changedTouches, Date.now());
+    if (!days) return;
+    this.suppressDayTapUntil = Date.now() + 300;
+    this.choose(shiftDays(this.data.selectedDate, days));
+  },
   onShiftWeek(e: any) { this.choose(shiftDays(this.data.selectedDate, Number(e.currentTarget.dataset.delta) * 7)); },
   onToday() { this.choose(localDateKey(new Date())); },
   onToggleBlock(e: any) {

@@ -145,7 +145,7 @@ test('合法的继承名称任务标识只读写自有记录，不把原型函�
   const plans = runtime.load('miniprogram/services/plans.ts');
   const template = clone(plans.getTemplate());
   template.schedules.find(schedule => schedule.weekdays.includes(6)).blocks.find(block => block.id === 'music').tasks[0].id = 'toString';
-  plans.saveTemplate(template, 1);
+  plans.saveTemplate(template, template.version);
   const records = runtime.load('miniprogram/services/records.ts');
   assert.equal(records.recordDetailsForDate(date).toString, undefined);
   assert.equal(records.forDate(date).toString, undefined);

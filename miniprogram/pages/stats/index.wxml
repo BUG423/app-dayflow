@@ -1,30 +1,33 @@
 <view class="page stats">
   <view class="page-title">执行统计</view>
   <view class="subtle">看见真实的行动，也给自己留出调整空间。</view>
-  <view class="week-navigation">
-    <button class="week-control" bindtap="onPreviousWeek" aria-label="查看上一周">‹</button>
+  <view class="week-navigation card">
     <view class="week-label">{{weekLabel}}</view>
-    <button class="week-control" bindtap="onNextWeek" aria-label="查看下一周">›</button>
-    <button class="current-week" bindtap="onCurrentWeek">本周</button>
+    <view class="week-controls">
+      <button class="week-control previous-week" size="mini" bindtap="onPreviousWeek" aria-label="查看上一周">上一周</button>
+      <button class="current-week" size="mini" bindtap="onCurrentWeek">回到本周</button>
+      <button class="week-control next-week" size="mini" bindtap="onNextWeek" aria-label="查看下一周">下一周</button>
+    </view>
   </view>
   <view wx:if="{{errorMessage}}" class="stats-error">{{errorMessage}}</view>
   <view class="overview card">
-    <view class="overview-label">这一周已发生日期的任务完成率</view>
+    <view class="overview-label">本周完成率</view>
     <view class="overview-number">{{percent}}<text class="percent-sign">%</text></view>
     <view class="subtle">已完成{{weeklyDone}} / {{weeklyTotal}}项</view>
     <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
-    <view class="training-count">其中训练步骤完成{{trainingCompleted}} / {{trainingTotal}}项</view>
+    <view class="training-count"><text class="training-dot"></text>训练步骤 {{trainingCompleted}} / {{trainingTotal}}项</view>
+    <view class="overview-footnote">统计截至今天，固定占用不参与打卡。</view>
   </view>
   <view class="metric-grid">
     <view class="card metric"><view class="metric-number">{{streak}}<text>天</text></view><view class="metric-label">当前连续执行</view></view>
     <view class="card metric"><view class="metric-number">{{activeDays}}<text>天</text></view><view class="metric-label">区间执行天数</view></view>
   </view>
-  <view class="field-help streak-help">连续执行截至今天，今天尚未完成时查看截至昨天的连续天数。区间执行天数按下方历史日期范围统计；跳过、延期和中止不算完成。</view>
+  <view class="field-help streak-help">每天完成至少一项即计入连续执行。区间天数按下方历史日期范围统计。</view>
 
   <view class="section-heading">本周每日执行</view>
   <view wx:if="{{!days.length}}" class="card empty-state">这一周还没有可统计的日期。</view>
   <view wx:for="{{days}}" wx:key="date" class="day card">
-    <view class="day-heading"><text>{{item.label}} · {{item.date}}</text><text class="count">{{item.completed}}/{{item.total}}</text></view>
+    <view class="day-heading"><text class="day-date">{{item.label}} · {{item.date}}</text><text class="count">{{item.completed}}/{{item.total}}</text></view>
     <view class="day-progress"><view class="day-progress-fill" style="width: {{item.percent}}%;"></view></view>
   </view>
 
@@ -39,14 +42,14 @@
   <view class="history-count">共{{historyCount}}天记录</view>
   <view wx:if="{{!historyDays.length}}" class="card empty-state">这段时间还没有执行记录。完成一件小事，就会留下第一笔。</view>
   <view wx:for="{{historyDays}}" wx:key="date" class="card history-day">
-    <view class="day-heading"><text>{{item.label}} · {{item.date}}</text><text class="count">{{item.completed}}/{{item.total}}项完成</text></view>
+    <view class="day-heading"><text class="day-date">{{item.label}} · {{item.date}}</text><text class="count">{{item.completed}}/{{item.total}}项完成</text></view>
     <view class="day-progress"><view class="day-progress-fill" style="width: {{item.percent}}%;"></view></view>
     <view class="history-day-footer"><text>训练{{item.trainingCompleted}} / {{item.trainingTotal}}项</text><button class="history-details" data-date="{{item.date}}" bindtap="onOpenHistoryDay">查看详情</button></view>
   </view>
   <view wx:if="{{historyRecords.length}}" class="section-heading">真实执行明细</view>
   <view wx:if="{{historyRecords.length}}" class="field-help history-limit">显示所选日期范围内最近50条记录。</view>
   <view wx:for="{{historyRecords}}" wx:for-item="record" wx:key="recordKey" class="card history-record">
-    <view class="record-heading"><text class="record-date">{{record.date}}</text><text class="record-status">{{record.statusLabel}}</text></view>
+    <view class="record-heading"><text class="record-date">{{record.date}}</text><text class="record-status status-{{record.status}}">{{record.statusLabel}}</text></view>
     <view class="record-title">{{record.title}}</view>
     <view class="actual-time"><text>实际开始</text><text>{{record.actualStartLabel}}</text></view>
     <view class="actual-time"><text>实际结束</text><text>{{record.actualFinishLabel}}</text></view>
