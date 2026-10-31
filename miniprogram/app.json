@@ -1,0 +1,42 @@
+{
+  "pages": [
+    "pages/today/index",
+    "pages/plans/index",
+    "pages/training/index",
+    "pages/stats/index",
+    "pages/profile/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#F8FAFC",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "Dayflow",
+    "backgroundColor": "#F8FAFC",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#83909C",
+    "selectedColor": "#247B74",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/today/index",
+        "text": "今日"
+      },
+      {
+        "pagePath": "pages/plans/index",
+        "text": "计划"
+      },
+      {
+        "pagePath": "pages/stats/index",
+        "text": "统计"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

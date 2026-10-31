@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": [
+      "ES2018",
+      "DOM"
+    ],
+    "strict": false,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "types": [
+      "miniprogram-api-typings"
+    ],
+    "resolveJsonModule": true
+  },
+  "include": [
+    "miniprogram/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

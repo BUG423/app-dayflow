@@ -1,0 +1,17 @@
+<view class="page stats">
+  <view class="eyebrow">YOUR PROGRESS</view>
+  <view class="page-title">每一步都算数</view>
+  <view class="subtle">记录真实的行动，而不是追求完美。</view>
+  <view class="overview card">
+    <view class="overview-label">本周截至今天的任务完成率</view>
+    <view class="overview-number">{{percent}}<text class="percent-sign">%</text></view>
+    <view class="subtle">已完成 {{weeklyDone}} / {{weeklyTotal}} 项</view>
+    <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
+  </view>
+  <view class="section-heading">每日执行情况</view>
+  <view wx:for="{{days}}" wx:key="date" class="day card">
+    <view class="day-heading"><text>{{item.label}} · {{item.date}}</text><text class="count">{{item.completed}}/{{item.total}}</text></view>
+    <view class="day-progress"><view class="day-progress-fill" style="width: {{item.percent}}%;"></view></view>
+  </view>
+  <view class="tip">工作时间等固定占用块不会计入完成率。未记录的任务不会被自动标记完成。</view>
+</view>

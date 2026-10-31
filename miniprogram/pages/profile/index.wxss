@@ -1,0 +1,10 @@
+.profile { padding-top: 48rpx; }
+.eyebrow { color: #278078; letter-spacing: 5rpx; font-size: 20rpx; font-weight: 800; margin-bottom: 12rpx; }
+.profile .page-title { margin-bottom: 10rpx; }
+.info { margin-top: 35rpx; }
+.row { display: flex; justify-content: space-between; padding: 14rpx 0; font-size: 25rpx; }
+.row + .row { border-top: 1rpx solid #F0F3F3; }
+.value { color: #87999E; }
+.control { display: flex; align-items: center; justify-content: space-between; color: #A25454; font-size: 26rpx; }
+.arrow { color: #ADB9BC; font-size: 35rpx; }
+.hint { color: #93A2A6; font-size: 23rpx; line-height: 1.7; padding: 5rpx 15rpx; margin-top: 8rpx; }

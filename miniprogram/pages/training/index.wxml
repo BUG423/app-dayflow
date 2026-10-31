@@ -1,0 +1,28 @@
+<view class="page training">
+  <view class="eyebrow">TRAINING SESSION</view>
+  <view class="page-title">{{title}}</view>
+  <view class="subtle">{{dateKey}} · {{time}}</view>
+  <view class="summary card">
+    <view class="summary-label">今天的训练进度</view>
+    <view class="summary-numbers">{{progressText}} <text class="small">项完成</text></view>
+    <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
+  </view>
+  <view class="alert">
+    <view class="alert-heading">训练前请注意</view>
+    <view>{{safety}}</view>
+  </view>
+  <view class="section-heading">训练动作</view>
+  <view wx:for="{{actions}}" wx:for-item="action" wx:key="id" class="exercise card">
+    <view class="exercise-top">
+      <view class="exercise-heading">
+        <view class="exercise-time">{{action.start}}–{{action.end}}</view>
+        <view class="exercise-title">{{action.title}}</view>
+        <view wx:if="{{action.dosage}}" class="dosage">{{action.dosage}}</view>
+      </view>
+      <view class="check {{action.done ? 'checked' : ''}}" data-id="{{action.id}}" bindtap="onToggleAction">{{action.done ? '✓' : ''}}</view>
+    </view>
+    <view class="description">{{action.description}}</view>
+    <view wx:if="{{action.searchKeyword}}" class="search" data-keyword="{{action.searchKeyword}}" bindtap="onCopyKeyword">复制示范检索词：{{action.searchKeyword}}　↗</view>
+  </view>
+  <button class="stop" bindtap="onStop">暂停或结束训练</button>
+</view>

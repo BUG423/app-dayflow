@@ -1,0 +1,15 @@
+.stats { padding-top: 48rpx; }
+.eyebrow { color: #278078; letter-spacing: 5rpx; font-size: 20rpx; font-weight: 800; margin-bottom: 13rpx; }
+.stats .page-title { margin-bottom: 11rpx; }
+.overview { margin-top: 34rpx; background: #E9F4F0; }
+.overview-label { color: #52847A; font-size: 25rpx; }
+.overview-number { font-weight: 760; font-size: 88rpx; line-height: 1.5; color: #277970; }
+.percent-sign { font-size: 36rpx; }
+.progress-track, .day-progress { border-radius: 20rpx; background: #DAE9E5; height: 12rpx; overflow: hidden; }
+.progress-track { margin-top: 30rpx; }
+.progress-fill, .day-progress-fill { background: #277970; height: 100%; }
+.day { margin-bottom: 14rpx; }
+.day-heading { display: flex; justify-content: space-between; margin-bottom: 20rpx; font-size: 25rpx; font-weight: 620; }
+.count { color: #8A9DA2; font-weight: 400; }
+.day-progress { height: 9rpx; background: #ECF1F1; }
+.tip { color: #8FA1A5; font-size: 23rpx; line-height: 1.7; padding: 15rpx; }

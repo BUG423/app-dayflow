@@ -1,0 +1,15 @@
+<view class="page profile">
+  <view class="eyebrow">PREFERENCES</view>
+  <view class="page-title">我的 Dayflow</view>
+  <view class="subtle">简单一点，每天前进一步。</view>
+  <view class="card info">
+    <view class="row"><text>版本</text><text class="value">{{version}}</text></view>
+    <view class="row"><text>数据存储</text><text class="value">{{storage}}</text></view>
+  </view>
+  <view class="section-heading">数据管理</view>
+  <view class="card control" bindtap="onClearRecords">
+    <text>清除本地打卡记录</text><text class="arrow">›</text>
+  </view>
+  <view class="hint">当前为本地演示版本，不提供账号同步。请勿将个人敏感资料上传至公开代码仓库。</view>
+  <view class="hint">未来版本将开放时间设置、模板导入、照片打卡和云端同步。</view>
+</view>

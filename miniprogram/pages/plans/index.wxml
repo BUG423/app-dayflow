@@ -1,0 +1,20 @@
+<view class="page plans">
+  <view class="eyebrow">MY WEEK</view>
+  <view class="page-title">一周计划</view>
+  <view class="subtle">按照自己的节奏，稳步执行。</view>
+  <view class="notice card">
+    <view class="notice-title">当前使用演示模板</view>
+    <view class="notice-body">已预置工作时间、吉他与声乐、每日运动及睡眠安排。个性化时间编辑、批量导入和计划版本管理将在后续版本开放。</view>
+  </view>
+  <view class="section-heading">本周训练安排</view>
+  <view wx:for="{{days}}" wx:key="date" class="day-card card {{item.selected ? 'selected' : ''}}">
+    <view class="day-head">
+      <text class="weekday">{{item.weekday}}</text>
+      <text class="date">{{item.date}}</text>
+      <text wx:if="{{item.selected}}" class="today-tag">今天</text>
+    </view>
+    <view class="day-title">{{item.title}}</view>
+    <view class="day-meta">{{item.minutes}} · {{item.actionCount}} 个步骤</view>
+  </view>
+  <button class="go-today" bindtap="onViewToday">打开今日时间轴</button>
+</view>

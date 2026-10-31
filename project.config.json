@@ -1,0 +1,19 @@
+{
+  "description": "Dayflow 微信原生小程序",
+  "miniprogramRoot": "miniprogram/",
+  "compileType": "miniprogram",
+  "projectname": "dayflow",
+  "appid": "touristappid",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "postcss": true,
+    "minified": false,
+    "useCompilerPlugins": [
+      "typescript"
+    ],
+    "sourceMap": true
+  },
+  "simulatorType": "wechat",
+  "condition": {}
+}
