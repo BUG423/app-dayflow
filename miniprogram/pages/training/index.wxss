@@ -4,7 +4,7 @@
 .summary-label { font-size: 14px; color: var(--color-muted); }
 .summary-numbers { font-size: 29px; color: var(--color-text); font-weight: 700; margin: 8px 0 14px; }
 .small { font-size: 13px; font-weight: 400; }
-.progress-track { height: 7px; background: #E5E7EB; border-radius: 7px; overflow: hidden; }
+.progress-track { height: 7px; background: #E9E7DB; border-radius: 7px; overflow: hidden; }
 .progress-fill { height: 100%; background: var(--color-training); }
 .alert { background: var(--color-warning-soft); color: var(--color-warning); padding: 14px 16px; border-radius: 14px; font-size: 14px; line-height: 1.8; }
 .alert-heading { font-weight: 650; margin-bottom: 6px; }
@@ -13,11 +13,11 @@
 .exercise-time { color: var(--color-muted); font-size: 13px; margin-bottom: 6px; }
 .exercise-title { font-size: 17px; font-weight: 650; line-height: 1.5; overflow-wrap: break-word; }
 .dosage { margin-top: 6px; font-size: 14px; color: var(--color-primary); }
-.check { border: 1px solid #D0D5DD; border-radius: 12px; height: 44px; width: 44px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; flex-shrink: 0; font-size: 22px; }
+.check { border: 1px solid #DDE1D6; border-radius: 12px; height: 44px; width: 44px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; flex-shrink: 0; font-size: 22px; }
 .check.checked { background: var(--color-success); border-color: var(--color-success); }
 .description { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--color-border); color: var(--color-muted); line-height: 1.8; font-size: 14px; }
 .search { color: var(--color-primary); font-size: 13px; min-height: 44px; padding-top: 10px; display: flex; align-items: center; line-height: 1.7; overflow-wrap: break-word; }
-.stop { background: #FFFFFF; border: 1px solid var(--color-border); color: #344054; border-radius: 12px; margin: 20px 0 0; font-size: 15px; min-height: 44px; padding: 11px 16px; display: flex; align-items: center; justify-content: center; }
+.stop { background: #FFFFFF; border: 1px solid var(--color-border); color: #425147; border-radius: 12px; margin: 20px 0 0; font-size: 15px; min-height: 44px; padding: 11px 16px; display: flex; align-items: center; justify-content: center; }
 .execution-controls { margin-top: 16px; }
 .execution-controls button { flex: 1; min-width: 120px; }
 .plan-hint { color: var(--color-muted); font-size: 13px; margin-top: 10px; line-height: 1.7; }
@@ -36,12 +36,12 @@
 .exercise-actions button { min-width: 92px; }
 .photo-list { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
 .photo-item { width: 92px; }
-.record-photo { display: block; width: 92px; height: 92px; border-radius: 12px; background: #F2F4F7; }
+.record-photo { display: block; width: 92px; height: 92px; border-radius: 12px; background: #F3F5EF; }
 .remove-photo { min-height: 44px; width: 100%; padding: 10px 0; background: transparent; font-size: 13px; color: var(--color-danger); display: flex; align-items: center; justify-content: center; }
 .photo-help { color: var(--color-muted); font-size: 12px; margin-top: 8px; line-height: 1.7; }
 .photo-origin { margin-top: 6px; color: var(--color-muted); font-size: 12px; text-align: center; line-height: 1.6; }
 .upload-photo { min-height: 44px; width: 100%; padding: 10px 0; background: transparent; font-size: 13px; color: var(--color-primary); display: flex; align-items: center; justify-content: center; }
-.active-timer { border-color: #DDD6FE; background: var(--color-training-soft); min-height: 88px; }
+.active-timer { border-color: #DED1F4; background: var(--color-training-soft); min-height: 88px; }
 .active-timer-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--color-muted); }
 .active-timer-value { margin-top: 6px; font-size: 28px; font-weight: 700; color: var(--color-training); line-height: 1.4; }
 .timer-panel .editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -52,8 +52,24 @@
 .feedback-editor slider { min-height: 44px; }
 .timer-panel { height: 540px; max-height: 84vh; box-sizing: border-box; }
 .page-error { margin-top: 12px; padding: 12px 14px; color: var(--color-danger); background: var(--color-danger-soft); border-radius: 10px; font-size: 14px; line-height: 1.7; }
-.rest-day-notice { margin-top: 16px; background: #F8FAFC; }
+.rest-day-notice { margin-top: 16px; background: #FBFCF7; }
 .rest-day-title { font-size: 16px; font-weight: 600; line-height: 1.6; color: var(--color-text); }
 .rest-day-reason { margin-top: 6px; color: var(--color-text); font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .training button.view-rest-day { min-height: 44px; margin: 12px 0 0; padding: 10px 12px; width: 100%; color: var(--color-primary); background: var(--color-primary-soft); border-radius: 10px; font-size: 14px; line-height: 1.6; white-space: normal; display: flex; align-items: center; justify-content: center; }
 .execution-disabled { border-style: dashed; }
+
+/* Sunshine page composition. */
+.training .summary { background: var(--color-training-soft); border-color: #E3D9F0; border-radius: 23px; }
+.training .summary-numbers { color: var(--color-training); font-size: 31px; }
+.training .exercise { border-radius: 22px; }
+.training .exercise-time { display: inline-block; color: var(--color-sky); background: var(--color-sky-soft); padding: 3px 8px; border-radius: 8px; }
+.training .exercise-title { font-size: 18px; font-weight: 700; }
+.training .check { border-radius: 15px; background: #FFFFFF; }
+.training .check.checked { background: var(--color-success); }
+.training .exercise-actions button { border-radius: 13px; color: var(--color-training); background: var(--color-training-soft); }
+.training .alert { border: 1px solid #F0DFA8; border-radius: 18px; }
+.training .active-timer { border-radius: 21px; }
+.training .rest-day-notice { background: #FFFCF3; border-color: #EEE3C3; border-radius: 21px; }
+.training .view-rest-day, .training .stop { border-radius: 15px !important; }
+.training .phase-picker { gap: 8px; }
+

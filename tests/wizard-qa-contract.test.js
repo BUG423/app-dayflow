@@ -25,7 +25,7 @@ $second=(& node $Fixture '2026-10-31'|Out-String)|ConvertFrom-Json -AsHashtable
 foreach($value in @($first,$second)){
   if($value.basic.values['dayflow.plans.v1'].schedules[0].title -ne '上午工作'){throw 'Chinese fixture corruption'}
   if($value.basic.values['dayflow.plans.v1'].schedules[3].title -ne '两个月后会议'){throw 'Future fixture corruption'}
-  if($value.full.values['dayflow.plans.v1'].schedules[0].blocks[0].end -ne '23:59'){throw 'Full day fixture corruption'}
+  if($value.full.values['dayflow.plans.v1'].schedules[0].blocks[0].end -ne '24:00'){throw 'Full day fixture corruption'}
 }
 if([Console]::OutputEncoding.CodePage -ne 65001){throw 'Native stdout not UTF8'}
 $script:Events=@();$script:Data=@{start='06:00';startTimeRange=@(@('06','12'),@('00'));startTimeIndices=@(0,0)}

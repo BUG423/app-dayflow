@@ -1,8 +1,8 @@
 <view class="page today">
   <view class="header">
     <view>
-      <view class="page-title">今日安排</view>
-      <view class="subtle">按自己的节奏，做好眼前这一件。</view>
+      <view class="title-line"><view class="heading-mark sun-mark" aria-hidden="true"></view><view class="page-title">今日安排</view></view>
+      <view class="subtle">把今天过得有声有色。</view>
     </view>
     <view class="today-jump" bindtap="onToday" aria-role="button" aria-label="回到今天"><text class="today-jump-label">今天</text></view>
   </view>
@@ -68,7 +68,7 @@
             <view class="block-title">{{block.title}}</view>
             <view class="block-meta">{{block.category}} <text wx:if="{{block.kind !== 'fixed'}}">· {{block.doneCount}}/{{block.totalCount}} 完成</text></view>
           </view>
-          <text wx:if="{{block.kind !== 'fixed'}}" class="expand-arrow">{{block.expanded ? '⌃' : '⌄'}}</text>
+          <view wx:if="{{block.kind !== 'fixed'}}" class="expand-arrow chevron {{block.expanded ? 'is-up' : ''}}" aria-hidden="true"></view>
           <text wx:else class="fixed-badge">固定</text>
         </view>
         <view wx:if="{{block.stateText}}" class="active-badge">{{block.stateText === '进行中' ? '当前时段' : block.stateText === '待开始' ? '稍后安排' : block.stateText}}</view>
@@ -82,7 +82,7 @@
             </view>
             <button class="task-menu" size="mini" disabled="{{restActive}}" data-id="{{action.id}}" catchtap="onTaskMenu" aria-label="调整{{action.title}}的状态">状态</button>
           </view>
-          <view wx:if="{{block.kind === 'sequence'}}" class="detail-link" data-id="{{block.id}}" catchtap="onOpenTraining">查看动作说明与训练详情 →</view>
+          <view wx:if="{{block.kind === 'sequence'}}" class="detail-link" data-id="{{block.id}}" catchtap="onOpenTraining"><text>动作说明与训练详情</text><view class="chevron is-right" aria-hidden="true"></view></view>
         </view>
       </view>
     </view>
@@ -92,7 +92,7 @@
     <view class="modal-card">
       <view class="modal-title">选择延期日期</view>
       <view class="modal-subtitle">{{deferTargetTitle}}</view>
-      <view class="form-field"><label class="field-label">安排到哪一天</label><picker mode="date" value="{{deferDate}}" bindchange="onDeferDateChange"><view class="form-picker">{{deferDate}}　⌄</view></picker></view>
+      <view class="form-field"><label class="field-label">安排到哪一天</label><picker mode="date" value="{{deferDate}}" bindchange="onDeferDateChange"><view class="form-picker"><text class="picker-value">{{deferDate}}</text><view class="chevron" aria-hidden="true"></view></view></picker></view>
       <view class="field-help">保存后仅标记延期，可到计划页一键安排目标日任务。</view>
       <view class="button-row"><button class="button-primary" bindtap="onConfirmDefer">确认延期</button><button class="button-secondary" bindtap="onCancelDefer">取消</button></view>
     </view>

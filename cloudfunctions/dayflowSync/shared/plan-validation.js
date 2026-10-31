@@ -53,10 +53,10 @@ function validatePlan(input) {
     }
     function times(value, label, parent) {
         try {
-            const start = (0, calendar_1.minutesOf)(value.start), end = (0, calendar_1.minutesOf)(value.end);
+            const start = (0, calendar_1.minutesOf)(value.start), end = (0, calendar_1.endMinutesOf)(value.end);
             if (start >= end)
                 error(label + '结束时间必须晚于开始时间');
-            if (parent && (start < (0, calendar_1.minutesOf)(parent.start) || end > (0, calendar_1.minutesOf)(parent.end)))
+            if (parent && (start < (0, calendar_1.minutesOf)(parent.start) || end > (0, calendar_1.endMinutesOf)(parent.end)))
                 error(label + '时间必须位于所属时间范围内');
         }
         catch (_err) {
@@ -122,7 +122,7 @@ function validatePlan(input) {
                         try {
                             if ((0, calendar_1.minutesOf)(action.start) < previousEnd)
                                 error(name + '顺序动作不能重叠或倒序');
-                            previousEnd = (0, calendar_1.minutesOf)(action.end);
+                            previousEnd = (0, calendar_1.endMinutesOf)(action.end);
                         }
                         catch (_err) { }
                     }
@@ -131,7 +131,7 @@ function validatePlan(input) {
                     try {
                         if ((0, calendar_1.minutesOf)(task.start) < previousEnd)
                             error(name + '顺序任务不能重叠或倒序');
-                        previousEnd = (0, calendar_1.minutesOf)(task.end);
+                        previousEnd = (0, calendar_1.endMinutesOf)(task.end);
                     }
                     catch (_err) { }
                 }

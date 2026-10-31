@@ -1,6 +1,6 @@
 <view class="page stats">
-  <view class="page-title">执行统计</view>
-  <view class="subtle">看见真实的行动，也给自己留出调整空间。</view>
+  <view class="title-line"><view class="heading-mark stats-mark" aria-hidden="true"></view><view class="page-title">执行统计</view></view>
+  <view class="subtle">每一点行动，都值得被看见。</view>
   <view class="week-navigation card">
     <view class="week-label">{{weekLabel}}</view>
     <view class="week-controls">
@@ -34,8 +34,8 @@
   <view class="section-heading">历史记录</view>
   <view class="card history-filter">
     <view class="form-grid">
-      <view class="history-date"><label class="field-label">开始日期</label><picker mode="date" value="{{fromDate}}" bindchange="onHistoryFromChange"><view class="form-picker">{{fromDate}}　⌄</view></picker></view>
-      <view class="history-date"><label class="field-label">结束日期</label><picker mode="date" value="{{toDate}}" bindchange="onHistoryToChange"><view class="form-picker">{{toDate}}　⌄</view></picker></view>
+      <view class="history-date"><label class="field-label">开始日期</label><picker mode="date" value="{{fromDate}}" bindchange="onHistoryFromChange"><view class="form-picker"><text class="picker-value">{{fromDate}}</text><view class="chevron" aria-hidden="true"></view></view></picker></view>
+      <view class="history-date"><label class="field-label">结束日期</label><picker mode="date" value="{{toDate}}" bindchange="onHistoryToChange"><view class="form-picker"><text class="picker-value">{{toDate}}</text><view class="chevron" aria-hidden="true"></view></view></picker></view>
     </view>
     <button class="button-secondary history-apply" bindtap="onApplyHistoryRange">查看这段时间</button>
   </view>
@@ -57,7 +57,7 @@
     <view wx:if="{{record.feedbackLabel}}" class="record-feedback">{{record.feedbackLabel}}</view>
     <button class="record-events-toggle" data-id="{{record.recordKey}}" bindtap="onToggleHistoryRecord">{{record.expanded ? '收起状态变化' : '查看状态变化'}} · {{record.eventCount}}次</button>
     <view wx:if="{{record.expanded}}" class="record-events">
-      <view wx:for="{{record.events}}" wx:for-item="event" wx:key="id" class="record-event"><view>{{event.fromLabel}} → {{event.toLabel}}</view><view class="event-time">{{event.atLabel}}</view><view wx:if="{{event.reason}}" class="event-reason">{{event.reason}}</view></view>
+      <view wx:for="{{record.events}}" wx:for-item="event" wx:key="id" class="record-event"><view>{{event.fromLabel}} 变为 {{event.toLabel}}</view><view class="event-time">{{event.atLabel}}</view><view wx:if="{{event.reason}}" class="event-reason">{{event.reason}}</view></view>
       <view wx:if="{{!record.events.length}}" class="field-help">这条记录尚无状态变化。</view>
     </view>
   </view>

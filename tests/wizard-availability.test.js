@@ -13,12 +13,13 @@ test('选择器只提供真实可用分钟，工作结束12点可选且结束不
   const existing=plan([schedule('work',[block('morning','工作','08:00','12:00'),block('afternoon','下午工作','14:00','18:00')])]);
   const draft=schedule('new',[block('new-block','练习','09:00','09:30')]);
   const result=e.getBlockAvailability(existing,draft,'new-block');
-  assert.deepEqual(plain(result.freeWindows),[{start:'00:00',end:'08:00'},{start:'12:00',end:'14:00'},{start:'18:00',end:'23:59'}]);
+  assert.deepEqual(plain(result.freeWindows),[{start:'00:00',end:'08:00'},{start:'12:00',end:'14:00'},{start:'18:00',end:'24:00'}]);
   assert.equal(result.allowedStarts.includes('08:00'),false);
   assert.equal(result.allowedStarts.includes('11:59'),false);
   assert.equal(result.allowedStarts.includes('12:00'),true);
   assert.equal(result.allowedStarts.includes('07:59'),true);
-  assert.equal(result.allowedStarts.includes('23:59'),false);
+  assert.equal(result.allowedStarts.includes('23:59'),true);
+  assert.equal(result.allowedStarts.includes('24:00'),false);
   assert.equal(result.suggestedStart,'12:00');assert.equal(result.suggestedEnd,'12:30');
   const ends=e.allowedEnds(result,'12:00');
   assert.equal(ends[0],'12:01');assert.equal(ends.at(-1),'14:00');assert.equal(ends.includes('14:01'),false);
@@ -37,8 +38,8 @@ test('半开区间衔接与分钟边界有效，内部并行任务不互相禁�
   assert.equal(e.getBlockAvailability(existing,draft,'new-block').proposedValid,false);
   assert.match(e.findScheduleConflicts(existing,draft)[0].message,/下午工作/);
   const late=e.getBlockAvailability(plan([]),schedule('late',[block('b','晚间','23:58','23:59')]),'b');
-  assert.deepEqual(plain(e.allowedEndMinutes(late,'23:58')),[1439]);
-  assert.deepEqual(plain(e.allowedEndMinutes(late,'23:59')),[]);
+  assert.deepEqual(plain(e.allowedEndMinutes(late,'23:58')),[1439,1440]);
+  assert.deepEqual(plain(e.allowedEndMinutes(late,'23:59')),[1440]);
 });
 
 test('编辑只排除原规则并保留当前草稿兄弟块，分析不改动或重新排序输入',()=>{
@@ -113,7 +114,7 @@ test('草稿跳过当天便不占用，替换日期与普通周计划时间分�
 
 test('全天无空档时选择器为空且明确解释，不伪造可选开始或建议',()=>{
   const e=engine();
-  const result=e.getBlockAvailability(plan([schedule('work',[block('busy','全天占用','00:00','23:59')])]),schedule('new',[block('b','练习','08:00','09:00')]),'b');
+  const result=e.getBlockAvailability(plan([schedule('work',[block('busy','全天占用','00:00','24:00')])]),schedule('new',[block('b','练习','08:00','09:00')]),'b');
   assert.deepEqual(plain(result.freeWindows),[]);assert.deepEqual(plain(result.allowedStarts),[]);
   assert.equal(result.suggestedStart,'');assert.equal(result.proposedValid,false);assert.match(result.message,/没有可用空档/);
 });

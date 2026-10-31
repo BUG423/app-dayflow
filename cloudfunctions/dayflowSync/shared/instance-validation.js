@@ -24,7 +24,7 @@ function validateInstances(value) {
             throw new Error('日程快照数据损坏，请先导出并检查');
         if (item.mode === 'emergency') {
             const training = item.blocks.filter((block) => block.category === '训练' || block.id === 'training');
-            if (training.length !== 1 || training[0].kind !== 'sequence' || (0, calendar_1.minutesOf)(training[0].end) - (0, calendar_1.minutesOf)(training[0].start) !== 15)
+            if (training.length !== 1 || training[0].kind !== 'sequence' || (0, calendar_1.endMinutesOf)(training[0].end) - (0, calendar_1.minutesOf)(training[0].start) !== 15)
                 throw new Error('简化方案快照无效，须保留十五分钟训练');
         }
     }

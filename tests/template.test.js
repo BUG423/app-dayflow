@@ -1,19 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createRuntime } = require('./helpers/miniprogram');
-const { shiftDays, minutesOf } = require('../miniprogram/utils/calendar');
+const { shiftDays, minutesOf, endMinutesOf } = require('../miniprogram/utils/calendar');
 const { progress } = require('../miniprogram/utils/progress');
 
 test('完整七日模板时间有效、顺序动作不重叠、ID 唯一，固定块不计完成率', () => {
   const { getBlocksForDate } = createRuntime().load('miniprogram/data/template.ts');
-  const actionCounts = [7, 2, 7, 2, 7, 2, 7];
+  const actionCounts = [9, 4, 9, 4, 9, 4, 9];
   for (let day = 0; day < 7; day++) {
     const blocks = getBlocksForDate(shiftDays('2026-10-26', day));
     const ids = new Set();
     let end = 0;
     for (const block of blocks) {
       assert.ok(minutesOf(block.start) >= end);
-      end = minutesOf(block.end);
+      end = endMinutesOf(block.end);
       assert.ok(end > minutesOf(block.start));
       let previous = minutesOf(block.start);
       for (const action of block.actions) {

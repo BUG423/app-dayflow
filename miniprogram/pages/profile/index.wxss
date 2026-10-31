@@ -44,3 +44,20 @@
 .privacy-copy { color: var(--color-muted); font-size: 13px; line-height: 1.8; margin-top: 12px; }
 .version-row { margin-top: 14px; border-top: 1px solid var(--color-border); }
 @media (max-width: 360px) { .profile .settings-group { padding: 0 14px; } .profile-section { min-height: 66px; } .row { gap: 8px; } }
+
+/* Sunshine page composition. */
+.profile > .subtle { margin-bottom: 22px; }
+.profile .settings-group { border-radius: 21px; margin-bottom: 12px; }
+.profile-section::before { content: ""; width: 12px; height: 12px; flex: 0 0 12px; border-radius: 5px; border: 5px solid var(--color-sky-soft); background: var(--color-sky); box-sizing: content-box; }
+.profile-section.section-training::before { background: var(--color-training); border-color: var(--color-training-soft); }
+.profile-section.section-data::before { background: var(--color-success); border-color: var(--color-success-soft); }
+.profile-section.section-about::before { background: #B77808; border-color: var(--color-sun-soft); }
+.profile .profile-section { min-height: 78px; gap: 12px; }
+.profile .setting-title { font-weight: 650; }
+.profile .profile-section > .chevron { margin-right: 3px; }
+.profile .time-setting, .profile button.phase-setting { gap: 8px; background: #F7F8F2; border-radius: 13px; padding-left: 12px; padding-right: 12px; }
+.profile .minutes-setting { border-radius: 13px; background: #FFFCF5; }
+.profile .section-content { border-top-style: dashed; }
+.profile .feedback-message { border-radius: 16px; }
+@media (max-width: 360px) { .profile .profile-section { min-height: 74px; gap: 9px; } }
+

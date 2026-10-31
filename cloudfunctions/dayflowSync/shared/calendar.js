@@ -35,8 +35,10 @@ function minutesOf(time) {
   const [hours, minutes] = time.split(':').map(Number);
   return hours * 60 + minutes;
 }
+/** 24:00 is the closing boundary of this date, never a clock/start time. */
+function endMinutesOf(time) { return time === '24:00' ? 1440 : minutesOf(time); }
 function minuteOfDate(date) { return date.getHours() * 60 + date.getMinutes(); }
 function timeState(start, end, nowMinute) {
-  return nowMinute < minutesOf(start) ? 'upcoming' : nowMinute >= minutesOf(end) ? 'past' : 'current';
+  return nowMinute < minutesOf(start) ? 'upcoming' : nowMinute >= endMinutesOf(end) ? 'past' : 'current';
 }
-module.exports = { localDateKey, parseLocalDate, shiftDays, mondayOf, weekDays, minutesOf, minuteOfDate, timeState };
+module.exports = { localDateKey, parseLocalDate, shiftDays, mondayOf, weekDays, minutesOf, endMinutesOf, minuteOfDate, timeState };

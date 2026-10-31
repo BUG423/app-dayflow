@@ -38,7 +38,7 @@ function buildContents() {
   result['preferences-validation.js'] = compile(fragments.join('\n'), filename);
   if (/\bwx\./.test(result['preferences-validation.js'])) throw new Error('Cloud validators must not reference wx services');
   for (const spec of [
-    { service: 'plans', output: 'instance-validation', names: ['object', 'assertDate', 'validateInstances'], imports: "import { parseLocalDate, minutesOf } from './calendar';\nimport { validatePlan } from './plan-validation';" },
+    { service: 'plans', output: 'instance-validation', names: ['object', 'assertDate', 'validateInstances'], imports: "import { parseLocalDate, minutesOf, endMinutesOf } from './calendar';\nimport { validatePlan } from './plan-validation';" },
     { service: 'media', output: 'media-validation', names: ['validatePhotos'], imports: "import { parseLocalDate } from './calendar';" }
   ]) {
     const file = path.join(project, 'miniprogram/services', spec.service + '.ts');

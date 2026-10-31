@@ -1,9 +1,10 @@
 import { getWeekdayName } from '../../data/template';
-import { localDateKey, weekDays, shiftDays, parseLocalDate, minutesOf } from '../../utils/calendar';
+import { previewEveningRoutineUpdate, saveEveningRoutineUpdate, EveningRoutineUpdatePreview } from '../../services/plans';
+import { localDateKey, weekDays, shiftDays, parseLocalDate, minutesOf, endMinutesOf } from '../../utils/calendar';
 import { getTemplate, getDayBlocks, getTemplateVersions, getDateEditState, saveTemplate, previewScheduleOverwrite, saveScheduleOverwrite, ScheduleOverwritePreview, getScheduleAvailability, getOverwriteSelectionAvailability, deleteSchedule, previewImport, importTemplate, exportTemplate, exportDefaultTemplate, scheduleDeferredTarget } from '../../services/plans';
 import { getHistory } from '../../services/records';
 import { Action, Schedule, TimeBlock } from '../../types/domain';
-import { isSimpleBlock, repeatMode, repeatWeekdays, simpleBlock } from '../../utils/plan-editor';
+import { isSimpleBlock, repeatMode, repeatWeekdays, repeatOptionLabels, repeatDescription, simpleBlock } from '../../utils/plan-editor';
 import { allowedEnds, AvailabilityResult } from '../../utils/planning-availability';
 import { timeColumns, selectedClock, clockFromMinute, moveActionRows } from '../../utils/wizard-state';
 import { representativeDates, blocksOnDate } from '../../utils/schedule-occurrences';
@@ -22,6 +23,7 @@ function optionalFields(row: any) {
 }
 
 Page({
+  eveningUpdate: null as EveningRoutineUpdatePreview | null,
   draftSchedule: null as Schedule | null,
   draftExpectedVersion: 1,
   originalBlocks: [] as TimeBlock[],
@@ -45,9 +47,12 @@ Page({
     kindIndex: 1, kindOptions: ['只占用时间','可单独打卡','按步骤执行'], actionRows: [] as any[],
     editingBlockIndex: 0, blockOptions: [] as any[], exceptionDate: '', exceptions: [] as any[],
     exceptionModeIndex: 0, exceptionModes: ['跳过当天','当天替换'],
-    importVisible: false, importText: '', importPreview: null as any, examplePreview: false, exampleRows: [] as any[]
-    , advancedVisible: false, toolsVisible: false, versionsVisible: false, trainingVisible: false,
-    simpleMode: true, repeatModeIndex: 0, repeatOptions: ['不重复','每天','周一至周五','每周指定几天'],
+    importVisible: false, importText: '', importPreview: null as any, examplePreview: false, exampleRows: [] as any[],
+    eveningPreview: false, eveningVersion: 0, eveningRemoved: [] as any[], eveningChangesExpanded: false,
+    advancedVisible: false, toolsVisible: false, versionsVisible: false, trainingVisible: false,
+    simpleMode: true, repeatModeIndex: 0, repeatOptions: ['不重复','每天','工作日','自选星期','每周这一天','非工作日'],
+    repeatChoices: [] as Array<{ value: number; label: string }>,
+    repeatWorkdayHint: '工作日为周一至周五，非工作日为周六、周日。',
     editorStep: 0, furthestStep: 0, wizardSteps: ['做什么','选时间','重复','确认'], wizardError: '', wizardNextDisabled: true,
     wizardNextLabel: '下一步', saving: false, draftResumeAvailable: false, summaryExpanded: false,
     wizardSummary: '', summaryRows: [] as any[], reviewBlocks: [] as any[], reviewExceptions: [] as any[], previewErrors: [] as string[],
@@ -119,11 +124,14 @@ Page({
       const occupied = occupiedResult.busy.slice(0, this.occupiedLimit).map(item => ({ date: item.date, scheduleTitle: item.scheduleTitle,
         title: item.title, start: item.start, end: item.end, key: item.date + ':' + item.scheduleId + ':' + item.blockId + ':' + item.start, label: item.date + ' ' + item.title + ' ' + item.start + '–' + item.end }));
       const range = scopeDate || this.data.effectiveFrom + (this.data.effectiveTo && this.data.effectiveTo !== this.data.effectiveFrom ? ' 至 ' + this.data.effectiveTo : '');
-      const repeat = this.data.exceptionOnly || this.data.repeatModeIndex === 0 ? '不重复' : this.data.repeatModeIndex === 1 ? '每天' : this.data.repeatModeIndex === 2 ? '周一至周五' : weekdays.filter(day => this.data.selectedWeekdays.includes(day)).map(day => labels[day]).join('、') || '请选择星期';
+      const repeatOptions = repeatOptionLabels(this.data.effectiveFrom,
+        this.data.repeatModeIndex === 4 && this.data.selectedWeekdays.length === 1 ? this.data.selectedWeekdays[0] : undefined);
+      const repeat = this.data.exceptionOnly ? '不重复' : repeatDescription(this.data.repeatModeIndex, this.data.effectiveFrom, this.data.selectedWeekdays);
       const summaryRows = [{ label: '事项', value: this.data.title.trim() || '尚未填写', step: 0 },
         { label: '日期', value: range || '尚未选择', step: 1 }, { label: '时间', value: this.data.start + '–' + this.data.end, step: 1 },
         { label: '重复', value: repeat, step: 2 }, { label: '打卡', value: this.data.kindIndex === 0 ? '不需要' : '需要', step: 0 }];
       this.setData({
+        repeatOptions, repeatChoices: [0,4,2,5,1].map(value => ({ value, label: repeatOptions[value] })),
         startTimeRange: start.range, startTimeIndices: start.indices, endTimeRange: end.range, endTimeIndices: end.indices,
         timePickerDisabled: !result.allowedStarts.length, freeWindows: occupiedResult.freeWindows.map((item, index) => ({ ...item, index, label: item.start + '–' + item.end })),
         occupiedSlots: occupied, occupiedMoreCount: Math.max(0, occupiedResult.busy.length - occupied.length), conflicts, conflictCount: this.wizardConflicts.length,
@@ -181,7 +189,7 @@ Page({
     try {
       const date = this.data.editingExceptionDate || this.data.effectiveFrom; parseLocalDate(date);
       if (getDateEditState(date).locked && (this.data.editingExceptionDate || this.data.repeatModeIndex === 0)) return '这一天已有执行记录或属于历史日期，请选择尚未执行的日期。';
-      if (minutesOf(this.data.start) >= minutesOf(this.data.end)) return '结束时间要晚于开始时间。';
+      if (minutesOf(this.data.start) >= endMinutesOf(this.data.end)) return '结束时间要晚于开始时间。';
       if (!this.availability || !this.availability.proposedValid) return this.data.timeAvailabilityError || '请先选择可用的连续时段。';
       if (this.wizardConflicts.length) return this.wizardConflicts[0].message;
       if (step === 1) return '';
@@ -233,8 +241,8 @@ Page({
     try {
       const start = selectedClock(this.data.startTimeRange, e.detail.value);
       this.refreshWizard(); if (!this.availability || !this.availability.allowedStarts.includes(start)) throw new Error('这个开始时间刚被占用，请重新查看可用时段。');
-      const ends = allowedEnds(this.availability, start), wanted = minutesOf(start) + Math.max(1, minutesOf(this.data.end) - minutesOf(this.data.start));
-      const end = ends.find(value => minutesOf(value) >= wanted) || ends[ends.length - 1];
+      const ends = allowedEnds(this.availability, start), wanted = minutesOf(start) + Math.max(1, endMinutesOf(this.data.end) - minutesOf(this.data.start));
+      const end = ends.find(value => endMinutesOf(value) >= wanted) || ends[ends.length - 1];
       if (!end) throw new Error('这个时间后没有连续空档，请选择其他开始时间。');
       this.applyTimeWindow(start, end);
     } catch (error) { this.setData({ wizardError: error.message }); this.refreshWizard(); }
@@ -249,7 +257,7 @@ Page({
   onChooseFreeWindow(e: any) {
     const index = Number(e.currentTarget.dataset.index); this.refreshWizard();
     const window = this.data.freeWindows[index]; if (!window) return;
-    try { const duration = Math.max(1, minutesOf(this.data.end) - minutesOf(this.data.start)); this.applyTimeWindow(window.start, clockFromMinute(Math.min(minutesOf(window.end), minutesOf(window.start) + duration))); }
+    try { const duration = Math.max(1, endMinutesOf(this.data.end) - minutesOf(this.data.start)); this.applyTimeWindow(window.start, clockFromMinute(Math.min(endMinutesOf(window.end), minutesOf(window.start) + duration))); }
     catch (error) { this.setData({ wizardError: error.message }); }
   },
   onChooseSuggestedTime() { this.refreshWizard(); if (this.suggestedWindow) { try { this.applyTimeWindow(this.suggestedWindow.start, this.suggestedWindow.end); } catch (error) { this.setData({ wizardError: error.message }); } } },
@@ -323,12 +331,14 @@ Page({
     const value = String(e.detail.value);
     if ((field === 'start' || field === 'end') && this.draftSchedule) { try { this.applyTimeWindow(field === 'start' ? value : this.data.start, field === 'end' ? value : this.data.end); } catch (error) { this.setData({ wizardError: error.message }); } return; }
     this.setData({ [field]: value, wizardError: '', ...(field === 'effectiveFrom' ? { dateSelectionHint: '' } : {}) });
-    if (field === 'effectiveFrom' && this.data.repeatModeIndex === 0) { try { this.updateWeekdays(repeatWeekdays(0, value, [])); this.setData({ effectiveTo: value }); } catch (_err) {} }
+    if (field === 'effectiveFrom' && (this.data.repeatModeIndex === 0 || this.data.repeatModeIndex === 4)) {
+      try { this.updateWeekdays(repeatWeekdays(this.data.repeatModeIndex, value, [])); if (this.data.repeatModeIndex === 0) this.setData({ effectiveTo: value }); } catch (_err) {}
+    }
     this.refreshWizard();
     if (field === 'effectiveFrom' || field === 'effectiveTo') this.offerOverwrite();
   } },
   onRepeatModeChange(e: any) {
-    const index = Number(e.detail.value); if (!Number.isInteger(index) || index < 0 || index > 3) return;
+    const index = Number(e.detail.value); if (!Number.isInteger(index) || index < 0 || index > 5) return;
     try { this.updateWeekdays(repeatWeekdays(index, this.data.effectiveFrom, this.data.selectedWeekdays)); this.setData({ repeatModeIndex: index, effectiveTo: index === 0 ? this.data.effectiveFrom : '', wizardError: '' }); this.refreshWizard(); if (index !== 3) this.offerOverwrite(); } catch (error) { this.fail(error); }
   },
   onChooseRepeat(e: any) { this.onRepeatModeChange({ detail: { value: e.currentTarget.dataset.index } }); },
@@ -418,19 +428,53 @@ Page({
     const id = String(e.currentTarget.dataset.id), version = this.data.templateVersion;
     wx.showModal({ title: '删除这条日程规则？', content: '未来安排将移除，已有执行历史和锁定快照会保留。', confirmText: '确认删除', success: result => { if (!result.confirm) return; try { deleteSchedule(id, version); this.refresh(); wx.showToast({ title: '已删除规则', icon: 'success' }); } catch (error) { this.fail(error); } } });
   },
-  onToggleImport() { this.setData({ importVisible: this.data.examplePreview || !this.data.importVisible, importPreview: null, examplePreview: false }); },
+  onToggleImport() { this.eveningUpdate = null; this.setData({ importVisible: this.data.examplePreview || !this.data.importVisible, importPreview: null, examplePreview: false, eveningPreview: false }); },
+  onPreviewEveningUpdate() {
+    if (this.draftSchedule) { this.onResumeDraft(); this.setData({ wizardError: '请先完成或放弃当前填写，再更新晚间作息。' }); return; }
+    try {
+      const version = getTemplate().version, preview = previewEveningRoutineUpdate(version);
+      this.eveningUpdate = preview;
+      const rows = preview.routines.map(schedule => ({ id: schedule.id, title: schedule.title,
+        blocks: schedule.blocks.map(block => ({ id: block.id, title: block.title, time: block.start + '–' + block.end, label: block.kind === 'fixed' ? '占用时间' : '可打卡' })) }));
+      this.setData({ toolsVisible: true, importVisible: true, examplePreview: true, eveningPreview: true, eveningVersion: version,
+        eveningChangesExpanded: false, eveningRemoved: preview.removed.map((item,index) => ({ ...item, key: index,
+          scope: item.date || weekdays.filter(day => item.weekdays.includes(day)).map(day => labels[day]).join('、') })),
+        importText: '', importPreview: { ok: preview.ok, errors: preview.errors, warnings: [],
+          summary: { schedules: 7, blocks: rows.reduce((sum,row) => sum + row.blocks.length,0), tasks: 0, actions: 0 } }, exampleRows: rows, errorMessage: '' });
+      if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: '.import-panel', duration: 150 });
+    } catch (error) { this.fail(error); }
+  },
+  onToggleEveningChanges() { this.setData({ eveningChangesExpanded: !this.data.eveningChangesExpanded }); },
+  onConfirmEveningUpdate() {
+    const preview = this.eveningUpdate, version = this.data.eveningVersion;
+    if (!preview?.ok || !preview.lease) return;
+    wx.showModal({ title: '更新晚间作息？', confirmText: '确认更新', cancelText: '暂不更新',
+      content: '从' + preview.summary.from + '起更新睡眠、加班、运动与睡前准备。周二四六不加班，其余日先加班再训练。将移除预览中的' + preview.removed.length + '处完整旧时段；与新作息不冲突的白天安排和自定义事项保留，已执行记录也保留。',
+      success: result => {
+        if (!result.confirm) return;
+        if (this.eveningUpdate?.lease !== preview.lease || !this.data.eveningPreview) { this.fail(new Error('预览内容已变化，请重新查看晚间作息后确认。')); return; }
+        try {
+          saveEveningRoutineUpdate(version, preview.lease); this.eveningUpdate = null;
+          this.setData({ importVisible: false, examplePreview: false, eveningPreview: false, importPreview: null, importText: '',
+            saveNotice: preview.summary.keepsToday ? '未来作息已更新；今天已有执行记录，继续保留原安排。' : '晚间作息已更新，与新作息不冲突的白天安排和自定义事项保留。' });
+          this.refresh(); wx.showToast({ title: '晚间作息已更新', icon: 'success' });
+        } catch (error) { this.fail(error); }
+      } });
+  },
   onPreviewExample() {
     try {
       const text = exportDefaultTemplate(), preview = previewImport(text);
       if (!preview.ok) throw new Error('示例计划暂时无法预览');
       const rows = preview.template.schedules.map(schedule => ({ id: schedule.id, title: schedule.title,
         blocks: schedule.blocks.map(block => ({ id: block.id, title: block.title, time: block.start + '–' + block.end, label: block.kind === 'fixed' ? '占用时间' : '可打卡' })) }));
-      this.setData({ toolsVisible: true, importVisible: true, examplePreview: true, importText: text, importPreview: preview, exampleRows: rows });
+      this.eveningUpdate = null;
+      this.setData({ toolsVisible: true, importVisible: true, examplePreview: true, eveningPreview: false, importText: text, importPreview: preview, exampleRows: rows });
     } catch (error) { this.fail(error); }
   },
-  onImportInput(e: any) { this.setData({ importText: String(e.detail.value), importPreview: null, examplePreview: false }); },
+  onImportInput(e: any) { this.eveningUpdate = null; this.setData({ importText: String(e.detail.value), importPreview: null, examplePreview: false, eveningPreview: false }); },
   onPreviewImport() { this.setData({ importPreview: previewImport(this.data.importText) }); },
   onConfirmImport() {
+    if (this.data.eveningPreview) { this.onConfirmEveningUpdate(); return; }
     const preview = previewImport(this.data.importText); this.setData({ importPreview: preview }); if (!preview.ok) return;
     const text = this.data.importText, version = this.data.templateVersion;
     wx.showModal({ title: this.data.examplePreview ? '使用这份示例计划？' : '确认导入计划？', content: '将替换尚未执行的未来安排，并保存为新版本。已有执行记录和锁定历史不会被覆盖。', confirmText: '确认使用', success: result => { if (!result.confirm) return; try { importTemplate(text, version); this.setData({ importVisible: false, importText: '', importPreview: null, examplePreview: false }); this.refresh(); wx.showToast({ title: '导入成功', icon: 'success' }); } catch (error) { this.fail(error); } } });

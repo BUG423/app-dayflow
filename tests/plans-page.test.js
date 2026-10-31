@@ -7,7 +7,7 @@ function submit(page) { for (let i = 0; i < 3 && page.data.editorStep < 3; i++) 
 
 test('计划页原生字段可创建并修改规则，确认删除后移除未来规则', () => {
   const runtime = createRuntime(), page = runtime.page('plans'); page.onShow(); page.onCreateSchedule();
-  page.onEditorInput(event({ field: 'start' }, '06:00')); page.onEditorInput(event({ field: 'end' }, '06:30'));
+  page.onEditorInput(event({ field: 'start' }, '08:00')); page.onEditorInput(event({ field: 'end' }, '08:30'));
   page.onToggleAdvanced();
   page.onEditorInput(event({ field: 'scheduleTitle' }, '晚间练习'));
   page.onEditorInput(event({ field: 'title' }, '自主练习'));
@@ -31,13 +31,17 @@ test('编辑多时间块及含步骤的并行任务时不会丢弃其它块、�
   const schedule = template.schedules.find(s => s.weekdays.includes(6));
   const music = schedule.blocks.find(b => b.id === 'music');
   music.tasks[0].actions = [{ id: 'guitar-step', title: '和弦练习', start: '12:05', end: '12:35', description: '逐步练习' }];
+  const otherBlocks = clone(schedule.blocks.filter(block => block.id !== 'music'));
   plans.saveTemplate(template, initialVersion);
   const page = runtime.page('plans'); page.onShow(); page.onEditSchedule(event({ id: schedule.id }));
-  page.onEditorBlockChange(event({}, 1)); page.onEditorInput(event({ field: 'title' }, '午间练习')); submit(page);
+  page.onEditorBlockChange(event({}, schedule.blocks.findIndex(block => block.id === 'music'))); page.onEditorInput(event({ field: 'title' }, '午间练习')); submit(page);
   const saved = plans.getTemplate().schedules.find(s => s.id === schedule.id);
-  assert.equal(saved.blocks.length, schedule.blocks.length); assert.equal(saved.blocks[3].id, 'training');
-  assert.equal(saved.blocks[1].tasks.length, 2); assert.equal(saved.blocks[1].tasks[0].actions[0].id, 'guitar-step');
-  assert.equal(saved.blocks[1].tasks[0].actions[0].description, '逐步练习');
+  assert.equal(saved.blocks.length, schedule.blocks.length);
+  assert.deepEqual(clone(saved.blocks.filter(block => block.id !== 'music')), otherBlocks);
+  const savedMusic = saved.blocks.find(block => block.id === 'music');
+  assert.equal(savedMusic.title, '午间练习'); assert.equal(savedMusic.tasks.length, 2);
+  assert.equal(savedMusic.tasks[0].actions[0].id, 'guitar-step');
+  assert.equal(savedMusic.tasks[0].actions[0].description, '逐步练习');
 });
 
 test('导入必须先重新校验且经用户确认，取消确认不改模板', () => {

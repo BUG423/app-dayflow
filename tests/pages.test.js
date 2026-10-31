@@ -78,7 +78,7 @@ test('并行任务独立勾选、跨日期隔离，训练返回刷新并在页�
   for (const [key, value] of runtime.storage) restarted.storage.set(key, value);
   const reopened = restarted.page('today');
   reopened.onLoad();
-  assert.equal(reopened.data.doneLabel, '2 / 4');
+  assert.equal(reopened.data.doneLabel, '2 / 6');
 });
 
 test('昨日回顾仅有记录时显示，每日最多一次且不修改完成状态', () => {

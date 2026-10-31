@@ -6,9 +6,7 @@ const { createRuntime, clone } = require('./helpers/miniprogram');
 
 function touch(x, y, identifier = 1) { return { identifier, clientX: x, clientY: y }; }
 function oldTemplate(plans) {
-  const plan = clone(plans.getTemplate()); plan.version = 1;
-  plan.schedules.forEach(schedule => { schedule.blocks = schedule.blocks.filter(block => block.id !== 'overtime'); });
-  return plan;
+  return JSON.parse(plans.exportDefaultTemplate(1));
 }
 function oldInstance(plans, date, overrides = {}) {
   const template = oldTemplate(plans), weekday = new Date(date + 'T12:00:00').getDay();
@@ -84,17 +82,17 @@ test('多指、纵向滚动和取消会清掉手势，正常点击及回今天�
   page.onToday(); assert.equal(page.data.selectedDate, original);
 });
 
-test('新版示例在周一至周六明确列加班为普通固定占用，周日不擅自加入且不增加任务分母', () => {
+test('新版示例仅一三五日先加班，二四六直接游泳且固定占用不增加任务分母', () => {
   const runtime = createRuntime(), plans = runtime.load('miniprogram/services/plans.ts');
   const progress = runtime.load('miniprogram/utils/progress.js');
-  assert.equal(plans.getTemplate().version, 2);
-  for (let day = 2; day <= 7; day++) {
+  assert.equal(plans.getTemplate().version, 3);
+  for (const day of [1,2,4,6]) {
     const date = '2026-11-0' + day, blocks = plans.getDayBlocks(date), overtime = blocks.find(block => block.id === 'overtime');
-    assert.equal(overtime.title, '加班'); assert.equal(overtime.kind, 'fixed'); assert.equal(overtime.start, '18:30'); assert.equal(overtime.end, '23:00');
+    assert.equal(overtime.title, '加班'); assert.equal(overtime.kind, 'fixed'); assert.equal(overtime.start, '17:00'); assert.equal(overtime.end, '20:00');
     assert.deepEqual(clone(overtime.actions), []);
     assert.deepEqual(clone(progress.progress(blocks, {})), clone(progress.progress(blocks.filter(block => block.id !== 'overtime'), {})));
   }
-  assert.equal(plans.getDayBlocks('2026-11-01').some(block => block.id === 'overtime'), false);
+  for (const date of ['2026-11-03','2026-11-05','2026-11-07']) assert.equal(plans.getDayBlocks(date).some(block => block.id === 'overtime'), false);
 });
 
 test('旧默认历史、仅缓存未锁日期和缺快照旧记录保留原v1安排，未来未执行缓存才更新', () => {
@@ -110,7 +108,7 @@ test('旧默认历史、仅缓存未锁日期和缺快照旧记录保留原v1安
     assert.equal(original.blocks.some(block => block.id === 'overtime'), false);
   }
   const future = plans.getDailyInstance(cachedFuture.date);
-  assert.equal(future.templateVersion, 2); assert.equal(future.blocks.some(block => block.id === 'overtime'), true);
+  assert.equal(future.templateVersion, 3); assert.equal(future.blocks.some(block => block.id === 'overtime'), true);
 });
 
 test('显式保存旧模板或自定义模板不自动插入加班，预览新示例不写数据且确认前历史不动', () => {
@@ -121,7 +119,7 @@ test('显式保存旧模板或自定义模板不自动插入加班，预览新�
   assert.equal(plans.getDayBlocks('2026-11-02').some(block => block.id === 'overtime'), false);
   const before = clone([...runtime.storage]);
   const text = plans.exportDefaultTemplate(), preview = plans.previewImport(text);
-  assert.equal(preview.ok, true); assert.equal(preview.template.version, 2);
+  assert.equal(preview.ok, true); assert.equal(preview.template.version, 3);
   assert.equal(preview.template.schedules.find(schedule => schedule.weekdays.includes(1)).blocks.some(block => block.id === 'overtime'), true);
   assert.deepEqual(clone([...runtime.storage]), before);
 });
@@ -130,15 +128,15 @@ test('新记录空状态仍是权威，旧未来打卡不阻止新版示例；�
   const runtime = createRuntime(), plans = runtime.load('miniprogram/services/plans.ts');
   runtime.storage.set('dayflow.records.v1', { '2026-11-02': { 'music-guitar': 'done' } });
   runtime.storage.set('dayflow.records.v2', { schemaVersion: 2, byDate: {} });
-  const updated = plans.getDailyInstance('2026-11-02'); assert.equal(updated.templateVersion, 2); assert.equal(updated.locked, false);
+  const updated = plans.getDailyInstance('2026-11-02'); assert.equal(updated.templateVersion, 3); assert.equal(updated.locked, false);
   const emergency = plans.setEmergencyPlan('2026-11-03', true); emergency.templateVersion = 1;
   emergency.blocks = emergency.blocks.filter(block => block.id !== 'overtime');
   const instances = runtime.storage.get('dayflow.instances.v1'); instances[emergency.date] = emergency;
   runtime.storage.set('dayflow.instances.v1', instances);
   const rebased = plans.getDailyInstance(emergency.date);
-  assert.equal(rebased.mode, 'emergency'); assert.equal(rebased.templateVersion, 2);
+  assert.equal(rebased.mode, 'emergency'); assert.equal(rebased.templateVersion, 3);
   assert.equal(rebased.blocks.find(block => block.id === 'training').end, '17:45');
-  assert.equal(rebased.blocks.some(block => block.id === 'overtime'), true);
+  assert.equal(rebased.blocks.some(block => block.id === 'overtime'), false);
 });
 
 test('今日日期栏只保留七日点选与触摸入口，删除重复日期标题和左右箭头', () => {
