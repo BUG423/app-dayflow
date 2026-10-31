@@ -2,6 +2,8 @@
  * 公开仓库中的泛化示例日程，不包含个人身份/病史，也不构成医疗指导。
  * 具体动作、负重、幅度和进阶条件应由使用者自行确认。
  */
+import { parseLocalDate } from '../utils/calendar';
+
 export type BlockKind = 'fixed' | 'parallel' | 'sequence';
 
 export interface PlanAction {
@@ -83,8 +85,7 @@ const workouts: Record<number, { name: string; steps: Step[] }> = {
 };
 
 function localWeekday(dateKey: string): number {
-  const bits = dateKey.split('-').map(Number);
-  return new Date(bits[0], bits[1] - 1, bits[2], 12).getDay();
+  return parseLocalDate(dateKey).getDay();
 }
 export function getBlocksForDate(dateKey: string): PlanBlock[] {
   const day = localWeekday(dateKey);

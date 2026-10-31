@@ -1,11 +1,12 @@
 import { getBlocksForDate, DEMO_NOTICE, PlanBlock } from '../../data/template';
 import { forDate, toggleDone } from '../../services/records';
 import { progress } from '../../utils/progress';
-import { localDateKey } from '../../utils/calendar';
+import { localDateKey, parseLocalDate } from '../../utils/calendar';
 
 Page({
   data: {
     dateKey: '',
+    blockId: '',
     title: '训练详情',
     time: '',
     actions: [] as any[],
@@ -16,6 +17,12 @@ Page({
   onLoad(options: any) {
     const dateKey = String(options.date || localDateKey(new Date()));
     const blockId = String(options.blockId || 'training');
+    try {
+      parseLocalDate(dateKey);
+    } catch (_err) {
+      wx.showToast({ title: '日期无效，请从日程重新进入', icon: 'none' });
+      return;
+    }
     this.setData({ dateKey, blockId });
     this.loadBlock();
   },
@@ -40,7 +47,9 @@ Page({
     });
   },
   onToggleAction(e: any) {
-    toggleDone(this.data.dateKey, String(e.currentTarget.dataset.id));
+    const actionId = String(e.currentTarget.dataset.id);
+    if (!this.data.actions.some((action: any) => action.id === actionId)) return;
+    toggleDone(this.data.dateKey, actionId);
     this.loadBlock();
   },
   onCopyKeyword(e: any) {

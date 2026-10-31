@@ -5,6 +5,9 @@ import { progress, blockProgress } from '../../utils/progress';
 
 type UIBlock = PlanBlock & { expanded: boolean; stateText: string; doneCount: number; totalCount: number; actions: any[] };
 Page({
+  clockTimer: null as ReturnType<typeof setInterval> | null,
+  lastToday: '',
+  lastClockMinute: '',
   data: {
     selectedDate: '',
     dayTitle: '',
@@ -20,12 +23,37 @@ Page({
     notice: DEMO_NOTICE
   },
   onLoad() {
-    this.choose(localDateKey(new Date()));
+    this.lastToday = localDateKey(new Date());
+    this.choose(this.lastToday);
   },
   onShow() {
     const today = localDateKey(new Date());
+    this.lastClockMinute = '';
     if (!this.data.selectedDate) this.choose(today);
-    else this.refresh();
+    else this.updateClock();
+    this.showYesterdayRecap(today);
+    this.stopClock();
+    this.clockTimer = setInterval(() => this.updateClock(), 1000);
+  },
+  onHide() { this.stopClock(); },
+  onUnload() { this.stopClock(); },
+  stopClock() {
+    if (this.clockTimer !== null) clearInterval(this.clockTimer);
+    this.clockTimer = null;
+  },
+  updateClock() {
+    const now = new Date();
+    const today = localDateKey(now);
+    const clockMinute = today + ':' + minuteOfDate(now);
+    if (this.lastClockMinute === clockMinute) return;
+    this.lastClockMinute = clockMinute;
+    // Follow midnight only while viewing today; preserve dates chosen by the user.
+    if (this.lastToday && this.lastToday !== today && this.data.selectedDate === this.lastToday) {
+      this.choose(today);
+    } else {
+      this.refresh();
+    }
+    this.lastToday = today;
     this.showYesterdayRecap(today);
   },
   onPullDownRefresh() {
