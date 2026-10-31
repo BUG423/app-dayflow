@@ -19,6 +19,26 @@
     <view class="calendar-hint">左右滑动换周，点击日期查看</view>
   </view>
 
+  <view wx:if="{{isToday || restRecorded}}" class="rest-card card">
+    <view wx:if="{{isToday && !restActive && !restEditorVisible}}" class="rest-entry">
+      <text class="rest-entry-label">今天想休息一下？</text>
+      <button class="rest-day-open" bindtap="onOpenRest">今天休息</button>
+    </view>
+    <view wx:if="{{isToday && restEditorVisible}}" class="rest-editor">
+      <view class="rest-heading">今天休息</view>
+      <view class="rest-explanation">暂停今天的全部安排。正在进行的任务会停止，已完成记录保留；明天照常。</view>
+      <view class="form-field"><label class="field-label">休息理由（选填）</label><textarea class="form-textarea rest-day-reason" value="{{restReasonInput}}" maxlength="200" placeholder="有事请假，或只是想休息一下" bindinput="onRestReasonInput" /></view>
+      <view wx:if="{{restError}}" class="rest-error">{{restError}}</view>
+      <view class="button-row rest-buttons"><button class="button-secondary rest-day-cancel" disabled="{{restSaving}}" bindtap="onCancelRest">暂不休息</button><button class="button-primary rest-day-confirm" disabled="{{restSaving}}" loading="{{restSaving}}" bindtap="onConfirmRest">暂停今天的安排</button></view>
+    </view>
+    <view wx:if="{{restActive}}" class="rest-day-notice">
+      <view wx:if="{{restReason}}" class="rest-reason">{{restReason}}</view>
+      <view class="rest-explanation">今天先休息，明天照常。任务和倒计时不会自动重新开始。</view>
+      <button class="rest-day-resume" disabled="{{restSaving}}" loading="{{restSaving}}" bindtap="onResumeRest">恢复今天的安排</button>
+    </view>
+    <view wx:if="{{!isToday && restRecorded}}" class="rest-day-history"><view class="rest-heading">这天休息过</view><view wx:if="{{restReason}}" class="rest-reason">{{restReason}}</view><view class="rest-explanation">{{restWasResumed ? '之后已恢复安排，执行记录保留。' : '当天暂停了安排，已有执行记录保留。'}}</view></view>
+  </view>
+
   <view class="focus card">
     <view class="focus-top">
       <text class="focus-label">{{heroCaption}}</text>
@@ -27,13 +47,13 @@
     <view class="focus-title">{{heroTitle}}</view>
     <view class="focus-time">{{heroTime}}</view>
     <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
-    <view class="focus-bottom">{{percent}}% 任务已完成 · 稳稳向前</view>
+    <view class="focus-bottom">{{restActive ? '休息也是安排的一部分，不需要补打卡。' : percent + '% 任务已完成 · 稳稳向前'}}</view>
   </view>
   <view wx:if="{{reminderText}}" class="front-reminder">{{reminderText}}</view>
 
   <view class="section-bar">
-    <text class="section-heading">日程时间轴</text>
-    <text class="section-hint">点击任务展开详情</text>
+    <text class="section-heading">{{restActive ? '原定安排' : '日程时间轴'}}</text>
+    <text class="section-hint">{{restActive ? '今天暂停，仍可查看' : '点击任务展开详情'}}</text>
   </view>
   <view class="timeline">
     <view class="timeline-row" wx:for="{{blocks}}" wx:for-item="block" wx:key="id">
@@ -42,7 +62,7 @@
         <text class="time-end">{{block.end}}</text>
       </view>
       <view class="timeline-mark"><view class="node {{block.stateText ? 'node-accent' : ''}}"></view><view class="timeline-line"></view></view>
-      <view class="block-card category-{{block.colorCategory}} {{block.kind === 'fixed' ? 'block-fixed' : ''}}">
+      <view class="block-card category-{{block.colorCategory}} {{block.kind === 'fixed' ? 'block-fixed' : ''}} {{restActive ? 'resting-block' : ''}}">
         <view class="block-header" data-id="{{block.id}}" bindtap="onToggleBlock">
           <view class="block-titles">
             <view class="block-title">{{block.title}}</view>
@@ -54,13 +74,13 @@
         <view wx:if="{{block.stateText}}" class="active-badge">{{block.stateText === '进行中' ? '当前时段' : block.stateText === '待开始' ? '稍后安排' : block.stateText}}</view>
         <view wx:if="{{block.expanded && block.kind !== 'fixed'}}" class="action-list">
           <view wx:for="{{block.actions}}" wx:for-item="action" wx:key="id" class="action-line">
-            <view class="check-button {{action.done ? 'checked' : ''}}" data-id="{{action.id}}" catchtap="onToggleTask" aria-role="checkbox" aria-checked="{{action.done}}" aria-label="{{action.done ? '取消完成' : '标记完成'}} {{action.title}}">{{action.done ? '✓' : ''}}</view>
+            <view class="check-button {{action.done ? 'checked' : ''}} {{restActive ? 'execution-disabled' : ''}}" data-id="{{action.id}}" catchtap="onToggleTask" aria-role="checkbox" aria-checked="{{action.done}}" aria-disabled="{{restActive}}" aria-label="{{restActive ? '今日休息，执行已暂停' : action.done ? '取消完成' : '标记完成'}} {{action.title}}">{{action.done ? '✓' : ''}}</view>
             <view class="action-content" data-id="{{action.id}}" catchtap="onToggleTask">
               <view class="action-title {{action.done ? 'action-done' : ''}}">{{action.title}}</view>
               <view class="action-time">{{action.start}}–{{action.end}} <text wx:if="{{action.dosage}}">· {{action.dosage}}</text></view>
               <view class="task-status">{{action.statusText || '待开始'}}</view>
             </view>
-            <button class="task-menu" size="mini" data-id="{{action.id}}" catchtap="onTaskMenu" aria-label="调整{{action.title}}的状态">状态</button>
+            <button class="task-menu" size="mini" disabled="{{restActive}}" data-id="{{action.id}}" catchtap="onTaskMenu" aria-label="调整{{action.title}}的状态">状态</button>
           </view>
           <view wx:if="{{block.kind === 'sequence'}}" class="detail-link" data-id="{{block.id}}" catchtap="onOpenTraining">查看动作说明与训练详情 →</view>
         </view>

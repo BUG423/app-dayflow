@@ -7,6 +7,7 @@ import { TaskStatus } from '../../types/domain';
 import { localDateKey, parseLocalDate, weekDays, shiftDays, minuteOfDate, timeState } from '../../utils/calendar';
 import { progress, blockProgress } from '../../utils/progress';
 import { beginCalendarGesture, calendarGestureCancelled, calendarSwipeDays, CalendarGesture } from '../../utils/calendar-gesture';
+import { getDayRest, startRestToday, resumeToday } from '../../services/rest-days';
 
 type UIBlock = Omit<PlanBlock, 'actions'> & { expanded: boolean; stateText: string; doneCount: number; totalCount: number; actions: any[] };
 const STATES: TaskStatus[] = ['doing', 'done', 'skipped', 'deferred', 'aborted', 'todo'];
@@ -22,7 +23,9 @@ Page({
     selectedDate: '', dayTitle: '', week: [] as any[], blocks: [] as UIBlock[], expandedBlock: '',
     isToday: true, heroCaption: '此刻的安排', heroTitle: '加载中', heroTime: '', doneLabel: '0 / 0',
     percent: 0, notice: DEMO_NOTICE, reminderText: '', loadError: '',
-    showDeferEditor: false, deferTargetId: '', deferTargetTitle: '', deferDate: ''
+    showDeferEditor: false, deferTargetId: '', deferTargetTitle: '', deferDate: '',
+    restActive: false, restRecorded: false, restReason: '', restWasResumed: false,
+    restEditorVisible: false, restFormDate: '', restReasonInput: '', restSaving: false, restError: ''
   },
   onLoad() { this.lastToday = localDateKey(new Date()); this.choose(this.lastToday); },
   onShow() {
@@ -45,6 +48,7 @@ Page({
   },
   checkReminders(today: string, nowMinute: number) {
     try {
+      if (getDayRest(today)?.active) { this.setData({ reminderText: '' }); return; }
       const due = getDueReminders(today, nowMinute, getDayBlocks(today), getDayBlocks(shiftDays(today, 1)));
       const reminder = due.find(item => !this.shownReminderKeys[item.key]);
       if (!reminder) return;
@@ -61,25 +65,26 @@ Page({
   choose(date: string) {
     try { parseLocalDate(date); }
     catch (_err) { wx.showToast({ title: '日期无效，请重新选择', icon: 'none' }); return; }
-    this.setData({ selectedDate: date, expandedBlock: '', showDeferEditor: false }); this.refresh();
+    this.setData({ selectedDate: date, expandedBlock: '', showDeferEditor: false, restEditorVisible: false, restError: '' }); this.refresh();
   },
   refresh() {
     const date = this.data.selectedDate || localDateKey(new Date()), today = localDateKey(new Date()), now = minuteOfDate(new Date());
     try {
       const details = recordDetailsForDate(date), records: Record<string, TaskStatus> = Object.create(null);
       Object.keys(details).forEach(id => { records[id] = details[id].status; });
-      const raw = getDayBlocks(date), total = progress(raw, records);
+      const raw = getDayBlocks(date), total = progress(raw, records), rest = getDayRest(date);
+      const restActive = date === today && !!rest?.active;
       const blocks: UIBlock[] = raw.map(block => {
         const count = blockProgress(block, records), state = date === today ? timeState(block.start, block.end, now) : '';
         return { ...block,
           colorCategory: block.category === '加班' || block.title === '加班' ? 'overtime' : block.category === '训练' ? 'training' : block.category === '兴趣' ? 'interest' : block.category === '工作' ? 'work' : 'life',
           actions: block.actions.map(action => ({ ...action, done: records[action.id] === 'done',
-            status: records[action.id] || 'todo', statusText: STATUS_LABELS[records[action.id] || 'todo'],
+            status: records[action.id] || 'todo', statusText: restActive && (!records[action.id] || records[action.id] === 'todo') ? '今日休息' : STATUS_LABELS[records[action.id] || 'todo'],
             deferredTo: details[action.id]?.deferredTo || '',
             elapsedText: durationText(elapsedSeconds(details[action.id])),
             feedback: details[action.id]?.feedback })),
           expanded: block.id === this.data.expandedBlock,
-          stateText: state === 'current' ? '当前时段' : state === 'upcoming' ? '待开始' : '',
+          stateText: restActive ? '今日休息' : state === 'current' ? '当前时段' : state === 'upcoming' ? '待开始' : '',
           doneCount: count.completed, totalCount: count.total };
       });
       let running: any;
@@ -99,9 +104,11 @@ Page({
         week: weekDays(date).map((item: any, index: number) => ({ ...item, selected: item.date === date, isToday: item.date === today,
           monthLabel: index === 0 || item.day === 1 ? Number(item.date.slice(5, 7)) + '月' : '' })),
         blocks, doneLabel: total.completed + ' / ' + total.total, percent: total.percent,
-        heroCaption: running ? '正在执行' : current ? '此刻正在进行' : next ? '接下来' : date !== today ? '查看这一天' : '今天的日程已结束',
-        heroTitle: running ? running.title : focus ? focus.title : date !== today ? '按时间完成每项计划' : '好好休息',
-        heroTime: running ? '实际执行 ' + running.elapsedText : focus ? focus.start + '–' + focus.end : date !== today ? '切回今天查看当前任务' : '明天继续加油'
+        restActive, restRecorded: !!rest, restReason: rest?.reason || '', restWasResumed: !!rest && !rest.active,
+        ...(restActive ? { reminderText: '', showDeferEditor: false } : {}),
+        heroCaption: restActive ? '按自己的节奏来' : running ? '正在执行' : current ? '此刻正在进行' : next ? '接下来' : date !== today ? '查看这一天' : '今天的日程已结束',
+        heroTitle: restActive ? '今天休息' : running ? running.title : focus ? focus.title : date !== today ? '按时间完成每项计划' : '好好休息',
+        heroTime: restActive ? '今天的安排已暂停，已完成记录保留。' : running ? '实际执行 ' + running.elapsedText : focus ? focus.start + '–' + focus.end : date !== today ? '切回今天查看当前任务' : '明天继续加油'
       });
     } catch (err) {
       this.setData({ loadError: errorText(err), heroTitle: '暂时无法读取日程', heroCaption: '请稍后重试', heroTime: '', blocks: [], doneLabel: '—', percent: 0 });
@@ -120,11 +127,53 @@ Page({
   },
   onShiftWeek(e: any) { this.choose(shiftDays(this.data.selectedDate, Number(e.currentTarget.dataset.delta) * 7)); },
   onToday() { this.choose(localDateKey(new Date())); },
+  onOpenRest() {
+    const date = localDateKey(new Date());
+    if (this.data.selectedDate !== date) return;
+    try {
+      const rest = getDayRest(date);
+      if (rest?.active) { this.refresh(); return; }
+      this.setData({ restEditorVisible: true, restFormDate: date, restReasonInput: '', restError: '' });
+    } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
+  },
+  onRestReasonInput(e: any) { this.setData({ restReasonInput: String(e.detail.value), restError: '' }); },
+  onCancelRest() { this.setData({ restEditorVisible: false, restError: '' }); },
+  onConfirmRest() {
+    if (this.data.restSaving) return;
+    const date = localDateKey(new Date());
+    if (this.data.restFormDate !== date || this.data.selectedDate !== date) {
+      this.setData({ restEditorVisible: false }); this.refresh();
+      wx.showToast({ title: '日期已变化，请重新选择今天的安排', icon: 'none' }); return;
+    }
+    try {
+      this.setData({ restSaving: true, restError: '' });
+      startRestToday(this.data.restReasonInput);
+      this.setData({ restEditorVisible: false }); this.refresh();
+      wx.showToast({ title: '今天先好好休息', icon: 'none' });
+    } catch (err) { this.setData({ restError: errorText(err) }); this.refresh(); }
+    finally { this.setData({ restSaving: false }); }
+  },
+  onResumeRest() {
+    if (this.data.restSaving || this.data.selectedDate !== localDateKey(new Date())) return;
+    try {
+      this.setData({ restSaving: true }); resumeToday(); this.refresh();
+      wx.showToast({ title: '已恢复安排，需要时再手动开始', icon: 'none' });
+    } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
+    finally { this.setData({ restSaving: false }); }
+  },
+  executionPaused(): boolean {
+    try {
+      const date = localDateKey(new Date());
+      if (this.data.selectedDate !== date || !getDayRest(date)?.active) return false;
+      this.refresh(); wx.showToast({ title: '今天正在休息，恢复安排后再执行', icon: 'none' }); return true;
+    } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); return true; }
+  },
   onToggleBlock(e: any) {
     const id = String(e.currentTarget.dataset.id);
     this.setData({ expandedBlock: this.data.expandedBlock === id ? '' : id }); this.refresh();
   },
   onToggleTask(e: any) {
+    if (this.executionPaused()) return;
     const id = String(e.currentTarget.dataset.id);
     try {
       const record = recordDetailsForDate(this.data.selectedDate)[id];
@@ -133,6 +182,7 @@ Page({
     } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
   },
   onTaskMenu(e: any) {
+    if (this.executionPaused()) return;
     const id = String(e.currentTarget.dataset.id);
     const action = this.data.blocks.reduce((items: any[], block: any) => items.concat(block.actions), []).find(item => item.id === id);
     if (!action) return;
@@ -149,6 +199,7 @@ Page({
   onDeferDateChange(e: any) { this.setData({ deferDate: String(e.detail.value) }); },
   onCancelDefer() { this.setData({ showDeferEditor: false }); },
   onConfirmDefer() {
+    if (this.executionPaused()) return;
     try {
       setStatus(this.data.selectedDate, this.data.deferTargetId, 'deferred', { deferredTo: this.data.deferDate });
       this.setData({ showDeferEditor: false }); this.refresh();

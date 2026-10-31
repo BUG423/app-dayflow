@@ -1,4 +1,5 @@
 import { parseLocalDate } from '../utils/calendar';
+import { assertExecutionAllowed } from './rest-day-store';
 
 export interface TimerState {
   schemaVersion: 1; dateKey: string; targetId: string; durationSeconds: number;
@@ -30,6 +31,7 @@ export function getTimer(): TimerState | null {
   return result;
 }
 export function startTimer(dateKey: string, targetId: string, durationSeconds: number): TimerState {
+  assertExecutionAllowed(dateKey);
   try { parseLocalDate(dateKey); } catch (_err) { throw new Error('请选择有效的计时日期'); }
   if (typeof targetId !== 'string' || !targetId || targetId.length > 160) throw new Error('请选择要计时的动作');
   if (!Number.isInteger(durationSeconds) || durationSeconds < 5 || durationSeconds > 10800) throw new Error('计时长度应为五秒至三小时');
@@ -44,6 +46,7 @@ export function pauseTimer(): TimerState | null {
 }
 export function resumeTimer(): TimerState | null {
   const value = getTimer(); if (!value || value.status !== 'paused') return value;
+  assertExecutionAllowed(value.dateKey);
   value.status = value.remainingSeconds ? 'running' : 'finished'; value.updatedAt = Date.now();
   if (value.remainingSeconds) value.endsAt = Date.now() + value.remainingSeconds * 1000;
   return save(value);
