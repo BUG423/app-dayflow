@@ -1,0 +1,14 @@
+page {
+  background: #F8FAFC;
+  color: #1C3037;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 28rpx;
+}
+view, text, button { box-sizing: border-box; }
+.page { padding: 32rpx 28rpx 80rpx; }
+.page-title { font-size: 48rpx; font-weight: 700; letter-spacing: 1rpx; }
+.subtle { color: #7D8D97; font-size: 24rpx; }
+.card { background: white; border-radius: 28rpx; padding: 30rpx; box-shadow: 0 6rpx 30rpx rgba(38,66,71,.04); margin-bottom: 20rpx; }
+.section-heading { margin: 32rpx 4rpx 18rpx; font-size: 31rpx; font-weight: 650; }
+.pill { background: #EAF5F2; color: #22766F; padding: 8rpx 16rpx; border-radius: 30rpx; font-size: 22rpx; }
+.muted { color: #8C9BA5; }

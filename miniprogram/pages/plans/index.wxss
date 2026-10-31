@@ -1,0 +1,16 @@
+.plans { padding-top: 48rpx; }
+.eyebrow { color: #278078; letter-spacing: 5rpx; font-size: 20rpx; font-weight: 800; margin-bottom: 12rpx; }
+.plans .page-title { margin-bottom: 12rpx; }
+.notice { background: #EAF3F1; margin-top: 33rpx; }
+.notice-title { color: #216D67; font-size: 27rpx; font-weight: 730; }
+.notice-body { font-size: 23rpx; line-height: 1.7; margin-top: 13rpx; color: #60837C; }
+.day-card { margin-bottom: 15rpx; border: 2rpx solid transparent; }
+.day-card.selected { border-color: #7BBAB0; }
+.day-head { display: flex; align-items: center; gap: 15rpx; }
+.weekday { font-size: 28rpx; font-weight: 720; }
+.date { color: #91A3A8; font-size: 22rpx; }
+.today-tag { margin-left: auto; color: #287B74; background: #E8F4F0; font-size: 20rpx; padding: 5rpx 14rpx; border-radius: 50rpx; }
+.day-title { margin-top: 15rpx; font-size: 28rpx; font-weight: 620; }
+.day-meta { color: #8A9DA2; font-size: 22rpx; margin-top: 9rpx; }
+.go-today { background: #287B73; color: white; border-radius: 22rpx; margin-top: 30rpx; font-size: 27rpx; }
+.go-today::after { border: none; }

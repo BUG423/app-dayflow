@@ -1,0 +1,14 @@
+node_modules/
+dist/
+miniprogram_npm/
+project.private.config.json
+*.local
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+private.*
+*.key
+*.pem
+coverage/

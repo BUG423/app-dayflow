@@ -1,0 +1,74 @@
+<view class="page today">
+  <view class="header">
+    <view>
+      <view class="brand">DAYFLOW <text class="brand-dot">●</text></view>
+      <view class="page-title">把今天过好</view>
+      <view class="subtle">每一件小事，都在积累改变。</view>
+    </view>
+    <view class="today-jump" bindtap="onToday">今天</view>
+  </view>
+
+  <view class="calendar card">
+    <view class="week-title">
+      <text class="week-name">{{dayTitle}}</text>
+      <view class="week-arrows">
+        <text class="week-arrow" data-delta="-1" bindtap="onShiftWeek">‹</text>
+        <text class="week-arrow" data-delta="1" bindtap="onShiftWeek">›</text>
+      </view>
+    </view>
+    <view class="weekday-row">
+      <view wx:for="{{week}}" wx:key="date" class="weekday {{item.selected ? 'active' : ''}}" data-date="{{item.date}}" bindtap="onChooseDay">
+        <text class="weekday-label">{{item.label}}</text>
+        <text class="weekday-number">{{item.day}}</text>
+        <view class="today-dot {{item.isToday ? 'visible' : ''}}"></view>
+      </view>
+    </view>
+  </view>
+
+  <view class="focus card">
+    <view class="focus-top">
+      <text class="focus-label">{{heroCaption}}</text>
+      <text class="focus-stat">已完成 {{doneLabel}}</text>
+    </view>
+    <view class="focus-title">{{heroTitle}}</view>
+    <view class="focus-time">{{heroTime}}</view>
+    <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
+    <view class="focus-bottom">{{percent}}% 任务已完成 · 稳稳向前</view>
+  </view>
+
+  <view class="section-bar">
+    <text class="section-heading">日程时间轴</text>
+    <text class="section-hint">点击任务展开详情</text>
+  </view>
+  <view class="timeline">
+    <view class="timeline-row" wx:for="{{blocks}}" wx:for-item="block" wx:key="id">
+      <view class="time-column">
+        <text class="time-main">{{block.start}}</text>
+        <text class="time-end">{{block.end}}</text>
+      </view>
+      <view class="timeline-mark"><view class="node {{block.stateText ? 'node-accent' : ''}}"></view><view class="timeline-line"></view></view>
+      <view class="block-card {{block.kind === 'fixed' ? 'block-fixed' : ''}}">
+        <view class="block-header" data-id="{{block.id}}" bindtap="onToggleBlock">
+          <view class="block-titles">
+            <view class="block-title">{{block.title}}</view>
+            <view class="block-meta">{{block.category}} <text wx:if="{{block.kind !== 'fixed'}}">· {{block.doneCount}}/{{block.totalCount}} 完成</text></view>
+          </view>
+          <text wx:if="{{block.kind !== 'fixed'}}" class="expand-arrow">{{block.expanded ? '⌃' : '⌄'}}</text>
+          <text wx:else class="fixed-badge">固定</text>
+        </view>
+        <view wx:if="{{block.stateText}}" class="active-badge">{{block.stateText}}</view>
+        <view wx:if="{{block.expanded && block.kind !== 'fixed'}}" class="action-list">
+          <view wx:for="{{block.actions}}" wx:for-item="action" wx:key="id" class="action-line">
+            <view class="check-button {{action.done ? 'checked' : ''}}" data-id="{{action.id}}" catchtap="onToggleTask">{{action.done ? '✓' : ''}}</view>
+            <view class="action-content" data-id="{{action.id}}" catchtap="onToggleTask">
+              <view class="action-title {{action.done ? 'action-done' : ''}}">{{action.title}}</view>
+              <view class="action-time">{{action.start}}–{{action.end}} <text wx:if="{{action.dosage}}">· {{action.dosage}}</text></view>
+            </view>
+          </view>
+          <view wx:if="{{block.kind === 'sequence'}}" class="detail-link" data-id="{{block.id}}" catchtap="onOpenTraining">查看动作说明与训练详情 →</view>
+        </view>
+      </view>
+    </view>
+  </view>
+  <view class="safety-notice">温馨提示：{{notice}}</view>
+</view>
