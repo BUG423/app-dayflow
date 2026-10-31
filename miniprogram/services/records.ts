@@ -1,4 +1,5 @@
 import { getDayBlocks, lockDailyInstance } from './plans';
+import { assertExecutionAllowed } from './rest-day-store';
 import { getBlocksForDate } from '../data/template';
 import { validId, checkDate, checkStatus, checkFeedback, validateEnvelope, validateLegacyRecords } from '../utils/record-validation';
 export { validateEnvelope } from '../utils/record-validation';
@@ -79,6 +80,7 @@ export function forDate(date: string): DateRecords {
 }
 export function setStatus(date: string, targetId: string, status: TaskStatus, options: { deferredTo?: string; reason?: string } = {}): ExecutionRecord {
   checkDate(date); checkStatus(status);
+  if (status === 'doing' || status === 'done') assertExecutionAllowed(date);
   if (options.reason !== undefined && (typeof options.reason !== 'string' || options.reason.length > 200)) throw new Error('状态说明不能超过两百字');
   if (status === 'deferred') {
     if (!options.deferredTo) throw new Error('请选择延期目标日期');

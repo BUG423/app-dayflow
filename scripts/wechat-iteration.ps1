@@ -7,9 +7,9 @@ param(
   [string]$RunDirectory
 )
 if ($Mode -eq 'Validate') {
-  # The current UI no longer has week arrows or an always-expanded editor.
+  # The current editor is a four-step wizard. Keep legacy recovery below intact.
   # Old Restore/Poll modes below still own their original multi-key backups.
-  & (Join-Path $PSScriptRoot 'wechat-ux.ps1') -Project $Project -WechatIde $WechatIde -Mode Validate -RunDirectory $RunDirectory
+  & (Join-Path $PSScriptRoot 'wechat-planning-wizard.ps1') -Project $Project -WechatIde $WechatIde -Mode Validate -RunDirectory $RunDirectory
   exit $LASTEXITCODE
 }
 $ErrorActionPreference = 'Stop'

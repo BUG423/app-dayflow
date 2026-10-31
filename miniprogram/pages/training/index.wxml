@@ -2,6 +2,7 @@
   <view class="page-title">{{title}}</view>
   <view class="subtle">{{dateKey}} · {{time}}</view>
   <view wx:if="{{loadError}}" class="page-error">{{loadError}}</view>
+  <view wx:if="{{restActive}}" class="rest-day-notice card"><view class="rest-day-title">今天休息，执行已暂停</view><view wx:if="{{restReason}}" class="rest-day-reason">{{restReason}}</view><view class="field-help">动作说明和已完成记录仍可查看。需要继续时，先恢复今天的安排，再手动开始。</view><button class="view-rest-day" bindtap="onViewRestDay">到今日页恢复安排</button></view>
   <view class="summary card">
     <view class="summary-label">{{isTrainingBlock ? '本次训练进度' : '本次执行进度'}}</view>
     <view class="summary-numbers">{{progressText}} <text class="small">项完成</text></view>
@@ -23,7 +24,7 @@
     <view>{{safety}}</view>
   </view>
   <view class="button-row execution-controls">
-    <button class="button-primary" bindtap="onStart">开始执行</button>
+    <button class="button-primary" disabled="{{restActive}}" bindtap="onStart">{{restActive ? '今日休息' : '开始执行'}}</button>
     <button wx:if="{{isTrainingBlock && (emergencyAvailable || emergencyEnabled)}}" class="button-secondary" disabled="{{!emergencyAvailable}}" bindtap="onEmergency">{{emergencyEnabled ? '恢复常规计划' : '改用15分钟简化计划'}}</button>
   </view>
   <view wx:if="{{isTrainingBlock && emergencyEnabled}}" class="plan-hint">已选择15分钟简化计划，仍可随时停止动作。</view>
@@ -37,17 +38,17 @@
         <view wx:if="{{action.dosage}}" class="dosage">{{action.dosage}}</view>
         <view class="task-status">{{action.statusText || '待开始'}}</view>
       </view>
-      <view class="check {{action.done ? 'checked' : ''}}" data-id="{{action.id}}" bindtap="onToggleAction" aria-role="checkbox" aria-checked="{{action.done}}" aria-label="{{action.done ? '取消完成' : '标记完成'}} {{action.title}}">{{action.done ? '✓' : ''}}</view>
+      <view class="check {{action.done ? 'checked' : ''}} {{restActive ? 'execution-disabled' : ''}}" data-id="{{action.id}}" bindtap="onToggleAction" aria-role="checkbox" aria-checked="{{action.done}}" aria-disabled="{{restActive}}" aria-label="{{restActive ? '今日休息，执行已暂停' : action.done ? '取消完成' : '标记完成'}} {{action.title}}">{{action.done ? '✓' : ''}}</view>
     </view>
     <view class="description">{{action.description}}</view>
     <view wx:if="{{action.equipment}}" class="action-detail">器材：{{action.equipment}}</view>
     <view wx:if="{{action.safety}}" class="action-safety">注意：{{action.safety}}</view>
     <view wx:if="{{action.searchKeyword}}" class="search" data-keyword="{{action.searchKeyword}}" bindtap="onCopyKeyword">复制示范检索词：{{action.searchKeyword}}　↗</view>
     <view class="exercise-actions">
-      <button class="button-secondary" data-id="{{action.id}}" bindtap="onActionMenu">调整状态</button>
+      <button class="button-secondary" disabled="{{restActive}}" data-id="{{action.id}}" bindtap="onActionMenu">调整状态</button>
       <button class="button-secondary open-feedback" data-id="{{action.id}}" bindtap="onOpenFeedback">记录感受</button>
       <button class="button-secondary choose-photo" data-id="{{action.id}}" bindtap="onChoosePhoto">添加照片</button>
-      <button class="button-secondary select-timer" data-id="{{action.id}}" bindtap="onSelectTimerTarget">{{isTrainingBlock ? '动作计时' : '步骤计时'}}</button>
+      <button class="button-secondary select-timer" disabled="{{restActive}}" data-id="{{action.id}}" bindtap="onSelectTimerTarget">{{isTrainingBlock ? '动作计时' : '步骤计时'}}</button>
     </view>
     <view wx:if="{{action.photos.length}}" class="photo-list">
       <view wx:for="{{action.photos}}" wx:for-item="photo" wx:key="id" class="photo-item">
@@ -78,7 +79,7 @@
       </view>
     </view>
   </view>
-  <button class="stop" bindtap="onStop">{{isTrainingBlock ? '中止本次训练' : '中止本次执行'}}</button>
+  <button wx:if="{{!restActive}}" class="stop" bindtap="onStop">{{isTrainingBlock ? '中止本次训练' : '中止本次执行'}}</button>
   <view wx:if="{{showTimerPanel}}" class="modal-mask">
     <scroll-view class="modal-card timer-panel" scroll-y>
       <view class="editor-heading"><view class="modal-title">{{isTrainingBlock ? '动作倒计时' : '步骤倒计时'}}</view><button class="close-timer" bindtap="onCloseTimerPanel">关闭</button></view>
@@ -89,9 +90,9 @@
       <view wx:if="{{timerReadError}}" class="action-safety">{{timerReadError}}</view>
       <view class="form-field"><label class="field-label">时长（秒，5至10800）</label><input class="form-input" type="number" value="{{timerSecondsInput}}" bindinput="onTimerDurationInput" maxlength="5" placeholder="例如：60" /></view>
       <view class="button-row timer-controls">
-        <button class="button-primary start-timer" bindtap="onStartTimer">开始计时</button>
+        <button class="button-primary start-timer" disabled="{{restActive}}" bindtap="onStartTimer">开始计时</button>
         <button wx:if="{{timerState.status === 'running'}}" class="button-secondary" bindtap="onPauseTimer">暂停</button>
-        <button wx:if="{{timerState.status === 'paused'}}" class="button-secondary" bindtap="onResumeTimer">继续</button>
+        <button wx:if="{{timerState.status === 'paused'}}" class="button-secondary" disabled="{{restActive}}" bindtap="onResumeTimer">继续</button>
         <button class="button-secondary" bindtap="onResetTimer">重置</button>
       </view>
       <view class="field-help">独立倒计时，结束不会自动完成任务。仅在前台提示结束，后台不保证提醒。</view>

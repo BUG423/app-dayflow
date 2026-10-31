@@ -60,6 +60,24 @@
 .safety-notice { padding: 12px 4px; color: var(--color-muted); line-height: 1.8; font-size: 12px; }
 .today button.task-menu { width: 44px; min-width: 44px; max-width: 44px; min-height: 44px; flex: 0 0 44px; margin: 0; padding: 8px 4px; font-size: 12px; color: var(--color-primary); background: var(--color-primary-soft); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .front-reminder { border: 1px solid #FDE68A; background: var(--color-warning-soft); border-radius: 12px; padding: 12px 14px; margin-top: 12px; color: var(--color-warning); font-size: 14px; line-height: 1.7; }
+.rest-card { padding: 14px 16px; }
+.rest-entry { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+.rest-entry-label { flex: 1 1 140px; min-width: 0; font-size: 14px; color: var(--color-muted); line-height: 1.6; }
+.today button.rest-day-open, .today button.rest-day-resume { min-height: 44px; margin: 0; padding: 10px 14px; color: var(--color-primary); background: var(--color-primary-soft); border-radius: 10px; font-size: 14px; line-height: 1.6; white-space: normal; display: flex; align-items: center; justify-content: center; }
+.today button.rest-day-open { flex: 0 0 auto; }
+.today button.rest-day-resume { width: 100%; margin-top: 12px; }
+.rest-heading { color: var(--color-text); font-size: 16px; font-weight: 600; line-height: 1.6; }
+.rest-explanation { color: var(--color-muted); font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.rest-heading + .rest-explanation { margin-top: 6px; }
+.rest-reason { color: var(--color-text); font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 6px; }
+.rest-editor .form-field { margin-top: 14px; }
+.rest-editor .rest-day-reason { min-height: 86px; height: 86px; }
+.rest-buttons { flex-wrap: wrap; margin-top: 14px; }
+.rest-buttons button { flex: 1 1 110px; min-width: 0; min-height: 44px; padding: 10px; white-space: normal; line-height: 1.6; }
+.rest-error { color: var(--color-danger); font-size: 13px; line-height: 1.7; margin-top: 8px; overflow-wrap: anywhere; }
+.resting-block .active-badge { color: var(--color-muted); }
+.execution-disabled { border-style: dashed; }
+.today button.task-menu[disabled] { color: var(--color-muted); background: #F2F4F7; }
 @media (max-width: 360px) {
   .calendar { margin-left: -9px; margin-right: -9px; padding-left: 2px; padding-right: 2px; }
   .time-column { width: 44px; }

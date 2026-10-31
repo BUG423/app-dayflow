@@ -9,6 +9,7 @@ import { getTimer, startTimer, pauseTimer, resumeTimer, resetTimer, TimerState }
 import { ExecutionRecord, TaskStatus, TrainingFeedback } from '../../types/domain';
 import { localDateKey, parseLocalDate, shiftDays } from '../../utils/calendar';
 import { progress } from '../../utils/progress';
+import { getDayRest } from '../../services/rest-days';
 
 const STATES: TaskStatus[] = ['doing', 'done', 'skipped', 'deferred', 'aborted', 'todo'];
 const STATE_OPTIONS = ['开始或继续执行', '标记完成', '跳过这个动作', '标记延期并选择日期', '中止这个动作', '恢复为待开始'];
@@ -28,7 +29,8 @@ Page({
     showDeferEditor: false, deferTargetId: '', deferTargetTitle: '', deferDate: '',
     showTimerPanel: false, timerSelectedId: '', timerSelectedTitle: '', timerTargetTitle: '',
     timerSecondsInput: '60', timerRemainingText: '00:00', timerStatusText: '尚未开始',
-    timerState: null as TimerState | null, timerReadError: ''
+    timerState: null as TimerState | null, timerReadError: '',
+    restActive: false, restReason: ''
   },
   onLoad(options: any) {
     const date = String(options.date || localDateKey(new Date())), blockId = String(options.blockId || 'training');
@@ -54,6 +56,7 @@ Page({
         wx.showToast({ title: '未找到该训练计划', icon: 'none' }); return;
       }
       const details = recordDetailsForDate(this.data.dateKey), records: Record<string, TaskStatus> = Object.create(null);
+      const rest = getDayRest(this.data.dateKey), restActive = this.data.dateKey === localDateKey(new Date()) && !!rest?.active;
       Object.keys(details).forEach(id => { records[id] = details[id].status; });
       this.activeRecords = details;
       const total = progress([block], records), instance = getDailyInstance(this.data.dateKey);
@@ -72,10 +75,11 @@ Page({
       try { const state = getSyncState(); cloudSyncEnabled = Boolean(state.enabled && state.configured); } catch (_err) {}
       this.setData({
         title: block.title, time: block.start + '–' + block.end, loadError: warning, phaseIndex, trainingPhase, phaseDescription, cloudSyncEnabled, isTrainingBlock,
+        restActive, restReason: rest?.reason || '', ...(restActive ? { showTimerPanel: false, showDeferEditor: false } : {}),
         emergencyEnabled: isTrainingBlock && instance.mode === 'emergency',
-        emergencyAvailable: isTrainingBlock && !instance.locked && this.data.dateKey >= localDateKey(new Date()) && !Object.keys(details).length,
+        emergencyAvailable: !restActive && isTrainingBlock && !instance.locked && this.data.dateKey >= localDateKey(new Date()) && !Object.keys(details).length,
         actions: block.actions.map(action => ({ ...action, done: records[action.id] === 'done',
-          status: records[action.id] || 'todo', statusText: STATUS_LABELS[records[action.id] || 'todo'],
+          status: records[action.id] || 'todo', statusText: restActive && (!records[action.id] || records[action.id] === 'todo') ? '今日休息' : STATUS_LABELS[records[action.id] || 'todo'],
           deferredTo: details[action.id]?.deferredTo || '', feedback: details[action.id]?.feedback,
           elapsedText: durationText(elapsedSeconds(details[action.id])), photos: photos.filter(photo => photo.targetId === action.id) })),
         progressText: total.completed + ' / ' + total.total, percent: total.percent
@@ -108,13 +112,28 @@ Page({
       this.setData({ timerState: null, timerRemainingText: '—', timerStatusText: '计时暂不可用', timerReadError: errorText(err) });
     }
   },
+  executionPaused(): boolean {
+    try {
+      const date = localDateKey(new Date());
+      if (this.data.dateKey !== date || !getDayRest(date)?.active) return false;
+      this.loadBlock(); wx.showToast({ title: '今天正在休息，恢复安排后再执行', icon: 'none' }); return true;
+    } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); return true; }
+  },
+  onViewRestDay() {
+    wx.switchTab({ url: '/pages/today/index', success: () => {
+      const page = getCurrentPages().find(item => item.route === 'pages/today/index') as any;
+      if (page && typeof page.onToday === 'function') page.onToday();
+    } });
+  },
   onToggleAction(e: any) {
+    if (this.executionPaused()) return;
     const id = String(e.currentTarget.dataset.id), action = this.data.actions.find(item => item.id === id);
     if (!action) return;
     try { setStatus(this.data.dateKey, id, action.done ? 'todo' : 'done'); this.loadBlock(); }
     catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
   },
   onActionMenu(e: any) {
+    if (this.executionPaused()) return;
     const id = String(e.currentTarget.dataset.id), action = this.data.actions.find(item => item.id === id);
     if (!action) return;
     wx.showActionSheet({ itemList: STATE_OPTIONS, success: result => {
@@ -130,6 +149,7 @@ Page({
   onDeferDateChange(e: any) { this.setData({ deferDate: String(e.detail.value) }); },
   onCancelDefer() { this.setData({ showDeferEditor: false }); },
   onConfirmDefer() {
+    if (this.executionPaused()) return;
     try {
       setStatus(this.data.dateKey, this.data.deferTargetId, 'deferred', { deferredTo: this.data.deferDate });
       this.setData({ showDeferEditor: false }); this.loadBlock();
@@ -137,6 +157,7 @@ Page({
     } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
   },
   onStart() {
+    if (this.executionPaused()) return;
     if (this.data.actions.some(action => action.status === 'doing')) { wx.showToast({ title: '当前动作正在执行', icon: 'none' }); return; }
     const action = this.data.actions.find(item => !item.done);
     if (!action) { wx.showToast({ title: '当前动作均已完成', icon: 'none' }); return; }
@@ -144,6 +165,7 @@ Page({
     catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
   },
   onStop() {
+    if (this.executionPaused()) return;
     if (!this.data.actions.length) return;
     wx.showModal({ title: this.data.isTrainingBlock ? '中止本次训练？' : '中止本次执行？', content: '已完成步骤会保留，其余步骤记录为中止。无需勉强完成，之后可自行继续。',
       confirmText: '确认中止', success: result => {
@@ -157,6 +179,7 @@ Page({
       } });
   },
   onEmergency() {
+    if (this.executionPaused()) return;
     if (!this.data.emergencyAvailable) { wx.showToast({ title: '已有记录的计划不能替换', icon: 'none' }); return; }
     const enabled = !this.data.emergencyEnabled;
     wx.showModal({ title: enabled ? '选择十五分钟简化计划？' : '恢复常规计划？',
@@ -218,6 +241,7 @@ Page({
   },
   onCopyKeyword(e: any) { const keyword = String(e.currentTarget.dataset.keyword || ''); if (keyword) wx.setClipboardData({ data: keyword }); },
   onSelectTimerTarget(e: any) {
+    if (this.executionPaused()) return;
     const id = String(e.currentTarget.dataset.id), action = this.data.actions.find(item => item.id === id);
     if (!action) return;
     this.setData({ showTimerPanel: true, timerSelectedId: id, timerSelectedTitle: action.title }); this.renderTimer();
@@ -225,6 +249,7 @@ Page({
   onCloseTimerPanel() { this.setData({ showTimerPanel: false }); },
   onTimerDurationInput(e: any) { this.setData({ timerSecondsInput: String(e.detail.value) }); },
   onStartTimer() {
+    if (this.executionPaused()) return;
     const id = this.data.timerSelectedId || this.data.actions.find(action => action.status === 'doing')?.id || this.data.actions[0]?.id;
     if (!id) return;
     if (!/^\d{1,5}$/.test(this.data.timerSecondsInput)) { wx.showToast({ title: '请输入整数秒数', icon: 'none' }); return; }
@@ -240,7 +265,7 @@ Page({
     } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
   },
   onPauseTimer() { try { pauseTimer(); this.renderTimer(); } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); } },
-  onResumeTimer() { try { resumeTimer(); this.renderTimer(); } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); } },
+  onResumeTimer() { if (this.executionPaused()) return; try { resumeTimer(); this.renderTimer(); } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); } },
   onResetTimer() { try { resetTimer(); this.renderTimer(); } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); } }
 });
 
