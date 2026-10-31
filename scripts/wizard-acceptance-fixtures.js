@@ -27,8 +27,8 @@ function wizardPayload(dateKey, at, scenario = 'basic') {
   ]);
   complex.exceptions = [{ date: plus(61), kind: 'skip' }, { date: plus(62), kind: 'replace', blocks: JSON.parse(JSON.stringify(complex.blocks)) }];
   let schedules;
-  if (scenario === 'full') schedules = [schedule('wizard-full', '全天工作', [fixed('wizard-full-block', '全天工作', '00:00', '23:59')])];
-  else if (scenario === 'siblings') schedules = [schedule('wizard-full', '同组已有重叠安排', [fixed('wizard-selected', '需要调整的事项', '09:00', '10:00'), fixed('wizard-full-block', '同组全天安排', '00:00', '23:59')])];
+  if (scenario === 'full') schedules = [schedule('wizard-full', '全天工作', [fixed('wizard-full-block', '全天工作', '00:00', '24:00')])];
+  else if (scenario === 'siblings') schedules = [schedule('wizard-full', '同组已有重叠安排', [fixed('wizard-selected', '需要调整的事项', '09:00', '10:00'), fixed('wizard-full-block', '同组全天安排', '00:00', '24:00')])];
   else if (scenario === 'overwrite') {
     const work = schedule('wizard-weekday-work', '工作日安排', [fixed('wizard-weekday-am', '上午工作', '09:00', '12:00'), fixed('wizard-weekday-pm', '下午工作', '14:00', '18:00')]);
     work.weekdays = [1, 2, 3, 4, 5];

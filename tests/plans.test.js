@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createRuntime, clone } = require('./helpers/miniprogram');
-const DEFAULT_VERSION = 2; // The revised built-in example has its own version.
+const DEFAULT_VERSION = 3; // The revised built-in example has its own version.
 
 function setup() { const runtime = createRuntime(); return { runtime, plans: runtime.load('miniprogram/services/plans.ts') }; }
 function simpleTemplate(plans, overrides = {}) {
@@ -18,11 +18,11 @@ test('默认七日模型区分任务和动作，投影保留旧目标标识且�
   const day = plans.getDailyInstance('2026-10-31');
   assert.equal(day.blocks.find(block => block.id === 'music').tasks.length, 2);
   assert.equal(day.blocks.find(block => block.id === 'music').tasks[0].actions.length, 0);
-  assert.equal(day.blocks.find(block => block.id === 'training').tasks[0].actions.length, 2);
+  assert.equal(day.blocks.find(block => block.id === 'training').tasks[0].actions.length, 4);
   const rows = plans.getDayBlocks('2026-10-31');
   assert.equal(rows.find(block => block.id === 'music').actions[0].id, 'music-guitar');
   assert.equal(rows.find(block => block.id === 'music').actions[0].taskId, 'music-guitar');
-  assert.equal(rows.find(block => block.id === 'training').actions[0].actionId, 'd6-step-0');
+  assert.equal(rows.find(block => block.id === 'training').actions[1].actionId, 'd6-step-0');
   assert.equal(rows.filter(block => block.kind === 'fixed').every(block => block.actions.length === 0), true);
 });
 
@@ -151,7 +151,7 @@ test('自主应急方案恰好十五分钟，未执行可恢复，锁定或有�
   const { runtime, plans } = setup();
   const emergency = plans.setEmergencyPlan('2026-10-31', true), block = emergency.blocks.find(b => b.id === 'training');
   assert.equal(emergency.mode, 'emergency'); assert.equal(block.start, '17:30'); assert.equal(block.end, '17:45'); assert.equal(block.tasks[0].actions.length, 3);
-  assert.equal(plans.setEmergencyPlan('2026-10-31', false).blocks.find(b => b.id === 'training').end, '18:30');
+  assert.equal(plans.setEmergencyPlan('2026-10-31', false).blocks.find(b => b.id === 'training').end, '19:00');
   runtime.storage.set('dayflow.records.v1', { '2026-10-31': { 'music-guitar': 'todo' } });
   assert.throws(() => plans.setEmergencyPlan('2026-10-31', true), /已有执行记录/);
   assert.throws(() => plans.setEmergencyPlan('2026-10-30', true), /已有执行记录/);
@@ -162,7 +162,7 @@ test('延期只经用户调用安排，保留来源状态、另找空档且相�
   runtime.storage.set('dayflow.records.v2', envelope(source.date, source.targetId, source));
   const first = plans.scheduleDeferredTarget(source.date, source.targetId, source.deferredTo);
   // Afternoon work begins at 13:00: the entire half-hour must move after it.
-  assert.equal(first.start, '17:00'); assert.equal(first.end, '17:30');
+  assert.equal(first.start, '19:00'); assert.equal(first.end, '19:30');
   const second = plans.scheduleDeferredTarget(source.date, source.targetId, source.deferredTo);
   assert.deepEqual(clone(second), clone(first));
   assert.equal(plans.getTemplate().version, DEFAULT_VERSION + 1);
@@ -238,7 +238,7 @@ test('用户主动简化选择在模板版本更新后仍保留，只在主动�
   assert.equal(kept.blocks.find(b => b.id === 'training').end, '17:45');
   assert.equal(kept.blocks.find(b => b.id === 'work-morning').title, '新的工作标题');
   const standard = plans.setEmergencyPlan('2026-10-31', false);
-  assert.equal(standard.mode, 'standard'); assert.equal(standard.blocks.find(b => b.id === 'training').end, '18:30');
+  assert.equal(standard.mode, 'standard'); assert.equal(standard.blocks.find(b => b.id === 'training').end, '19:00');
 });
 
 test('延期不能自动排到已选择简化覆盖的日期，不能返回成功却遗漏事项', () => {

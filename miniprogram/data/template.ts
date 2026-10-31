@@ -1,114 +1,40 @@
-/**
- * 公开仓库中的泛化示例日程，不包含个人身份/病史，也不构成医疗指导。
- * 具体动作、负重、幅度和进阶条件应由使用者自行确认。
- */
-import { parseLocalDate } from '../utils/calendar';
+/** Public, adjustable example only. Reserved exercise time is not a medical prescription. */
+import { minutesOf, parseLocalDate } from '../utils/calendar';
+import { getLegacyBlocksForDate, PlanAction, PlanBlock } from './legacy-template';
+export { PlanAction, PlanBlock, BlockKind, getWeekdayName, DEMO_NOTICE } from './legacy-template';
 
-export type BlockKind = 'fixed' | 'parallel' | 'sequence';
+const clock = (minute: number) => String(Math.floor(minute / 60)).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0');
 
-export interface PlanAction {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-  dosage?: string;
-  description?: string;
-  searchKeyword?: string;
-  equipment?: string;
-  safety?: string;
-  taskId?: string;
-  actionId?: string;
-}
-export interface PlanBlock {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-  kind: BlockKind;
-  category: string;
-  actions: PlanAction[];
-}
-
-type Step = [string, string, string, string, string, string];
-const a = (day: number, index: number, step: Step): PlanAction => ({
-  id: 'd' + day + '-step-' + index,
-  start: step[0], end: step[1], title: step[2],
-  dosage: step[3], description: step[4], searchKeyword: step[5]
-});
-
-/** 按本地星期：1=周一 ... 0=周日。 */
-const workouts: Record<number, { name: string; steps: Step[] }> = {
-  1: { name: '下肢稳定训练', steps: [
-    ['17:30','17:35','髋踝活动与轻踏步','各 10 次','轻柔活动关节，避免追求最大幅度。','髋踝关节热身'],
-    ['17:35','17:45','弹力带蚌式开合','3×15 / 侧','侧卧，保持骨盆平稳，慢速打开上方膝盖。','蚌式开合 臀中肌'],
-    ['17:45','17:55','单脚臀桥','3×10 / 侧','脚跟发力，骨盆保持稳定；不适时换双脚版本。','单腿臀桥 基础'],
-    ['17:55','18:05','坐姿臀行走','3 组','坐姿保持躯干稳定，交替移动臀部，不要用腰部猛扭。','坐姿臀行走 骨盆稳定'],
-    ['18:05','18:15','直腿抬高','3×12 / 侧','保持动作可控，不使用惯性摆腿。','直腿抬高 基础'],
-    ['18:15','18:25','浅幅度分腿蹲（可替换）','3×8 / 侧','仅在动作已被确认适合自身状况时进行；可改为更简单动作。','浅幅度分腿蹲'],
-    ['18:25','18:30','轻柔放松拉伸','3–5 分钟','避开关节与明显压痛处，不进行强力滚压。','臀腿轻柔拉伸']
-  ]},
-  2: { name: '游泳与拉伸', steps: [
-    ['17:30','18:20','游泳或替代低冲击活动','按自身状态调整','舒适强度进行，保持均匀呼吸；不适立即休息。','低冲击游泳基础'],
-    ['18:20','18:30','肩髋轻柔拉伸','10 分钟','轻轻活动肩和髋，不追求最大拉伸幅度。','游泳后肩髋拉伸']
-  ]},
-  3: { name: '肩背与核心', steps: [
-    ['17:30','17:35','肩环绕与胸椎活动','各 10 次','缓慢活动肩和胸椎，不强行拉伸关节。','胸椎活动 肩部热身'],
-    ['17:35','17:45','坐姿轻哑铃肩推（可替换）','3×10','可先徒手练习，避免代偿；如有不适停止。','坐姿哑铃肩推 初学者'],
-    ['17:45','17:55','俯身侧平举','3×15','背部保持稳定，使用舒适重量，缓慢抬落。','俯身侧平举 肩后束'],
-    ['17:55','18:05','俯卧肩胛多方向抬举','3×10','以轻量可控的肩胛运动为主。','俯卧肩胛多方向抬举 肩胛稳定'],
-    ['18:05','18:15','死虫式','3×10 / 侧','腰背保持舒适中立位，四肢缓慢伸展。','死虫式 核心'],
-    ['18:15','18:25','坐姿臀行走','2 组','保持脊柱稳定，不用疼痛换取幅度。','坐姿臀行走'],
-    ['18:25','18:30','胸背轻柔拉伸','5 分钟','用温和力度放松胸背部。','胸背拉伸']
-  ]},
-  4: { name: '游泳与拉伸', steps: [
-    ['17:30','18:20','游泳或替代低冲击活动','按自身状态调整','根据个人体力调整时长，必要时休息。','低冲击游泳基础'],
-    ['18:20','18:30','肩髋轻柔拉伸','10 分钟','轻柔放松肩髋区域。','游泳后肩髋拉伸']
-  ]},
-  5: { name: '下肢单侧稳定', steps: [
-    ['17:30','17:35','髋踝活动与蚌式预热','各 10 次','动作轻缓，先检查身体状态。','髋踝关节热身'],
-    ['17:35','17:45','弹力带蚌式开合','3×15 / 侧','控制骨盆位置，逐步发力。','蚌式开合 臀中肌'],
-    ['17:45','17:55','单脚臀桥（可替换）','3×9 / 侧','先确保无负重动作稳定，必要时使用双腿版本。','单腿臀桥'],
-    ['17:55','18:05','坐姿臀行走','3 组','在舒适范围内做小幅度移动。','坐姿臀行走'],
-    ['18:05','18:15','反向弓步（可替换）','3×9 / 侧','仅限已确认适合自身状况的使用者；可改为辅助站立练习。','反向弓步 基础'],
-    ['18:15','18:25','单腿睁眼平衡','3×30 秒 / 侧','在稳固支撑物旁练习，防止跌倒。','单腿平衡 基础'],
-    ['18:25','18:30','臀腿放松','5 分钟','轻柔放松，不对关节施加直接压力。','臀腿放松']
-  ]},
-  6: { name: '游泳与拉伸', steps: [
-    ['17:30','18:20','游泳或替代低冲击活动','按自身状态调整','以舒适强度为原则，不适立即停止。','低冲击游泳基础'],
-    ['18:20','18:30','肩髋轻柔拉伸','10 分钟','轻柔活动肩部与髋部。','游泳后肩髋拉伸']
-  ]},
-  0: { name: '上肢与核心', steps: [
-    ['17:30','17:35','肩环绕与胸椎活动','各 10 次','轻缓活动，不追求最大幅度。','胸椎活动 肩部热身'],
-    ['17:35','17:45','坐姿轻哑铃肩推（可替换）','3×10','先从徒手动作开始，检查舒适度。','坐姿肩推 初学者'],
-    ['17:45','17:55','俯身划船（可替换）','3×10','以轻重量控制为主，不长时间保持紧握。','哑铃俯身划船 基础'],
-    ['17:55','18:05','侧平举','3×15','动作缓慢可控，避免肩部耸起。','哑铃侧平举 基础'],
-    ['18:05','18:15','侧向核心稳定（可替换）','2×20 秒 / 侧','选择无需压迫关节的支撑形式；不适则更换。','侧向核心稳定训练'],
-    ['18:15','18:25','死虫式','3×10 / 侧','保持腰背稳定，配合呼吸。','死虫式 核心'],
-    ['18:25','18:30','胸肩轻柔拉伸','5 分钟','缓慢放松，不要过度牵拉。','开胸拉伸']
-  ]}
-};
-
-function localWeekday(dateKey: string): number {
-  return parseLocalDate(dateKey).getDay();
-}
-export function getBlocksForDate(dateKey: string): PlanBlock[] {
-  const day = localWeekday(dateKey);
-  const workout = workouts[day];
-  const blocks: PlanBlock[] = [
-    { id: 'work-morning', title: '工作时间', start: '09:00', end: '11:40', kind: 'fixed', category: '工作', actions: [] },
-    { id: 'music', title: '吉他与声乐', start: '12:05', end: '12:35', kind: 'parallel', category: '兴趣', actions: [
-      { id: 'music-guitar', title: '练吉他', start: '12:05', end: '12:35', description: '按照当天练习目标自主安排。' },
-      { id: 'music-vocal', title: '练声乐', start: '12:05', end: '12:35', description: '按照当天练习目标自主安排。' }
-    ]},
-    { id: 'work-afternoon', title: '工作时间', start: '13:00', end: '17:00', kind: 'fixed', category: '工作', actions: [] },
-    { id: 'training', title: workout.name, start: '17:30', end: '18:30', kind: 'sequence', category: '训练', actions: workout.steps.map((step, i) => a(day, i, step)) },
-    ...(day === 0 ? [] : [{ id: 'overtime', title: '加班', start: '18:30', end: '23:00', kind: 'fixed' as BlockKind, category: '加班', actions: [] }]),
-    { id: 'sleep', title: '准备睡觉', start: '23:00', end: '23:15', kind: 'fixed', category: '生活', actions: [] }
+/** A 90-minute reservation keeps the former exercise dose and adds flexible preparation/rest. */
+function exerciseBlock(date: string, swimming: boolean): PlanBlock {
+  const day = parseLocalDate(date).getDay();
+  const original = getLegacyBlocksForDate(date, 1).find(block => block.id === 'training')!;
+  const start = swimming ? '17:30' : '20:30', end = swimming ? '19:00' : '22:00';
+  const begin = minutesOf(start), offset = begin + 15 - minutesOf(original.start);
+  const actions: PlanAction[] = [
+    { id: 'd' + day + '-prepare', title: swimming ? '更衣与活动准备' : '训练准备与自主休息', start, end: clock(begin + 15),
+      dosage: '预留十五分钟，可自主调整', description: '留出准备、更衣或休息时间；可以提前结束，不需要额外增加运动量。',
+      safety: '根据当天状态调整，不适时停止。' },
+    ...original.actions.map(action => ({ ...action, start: clock(minutesOf(action.start) + offset), end: clock(minutesOf(action.end) + offset) })),
+    { id: 'd' + day + '-record', title: swimming ? '更衣、放松与记录' : '放松、休息与记录', start: clock(begin + 75), end,
+      dosage: '预留十五分钟，可自主调整', description: '按需要休息、更衣和记录感受，不要求继续运动。',
+      safety: '不适无需坚持，可停止并咨询专业人员。' }
   ];
-  return blocks.sort((left, right) => left.start.localeCompare(right.start));
+  return { ...original, start, end, actions };
 }
 
-export function getWeekdayName(dateKey: string): string {
-  return ['周日','周一','周二','周三','周四','周五','周六'][localWeekday(dateKey)];
+/** Local-calendar v3 sample. Midnight sleep is represented by two exact daily fixed intervals. */
+export function getBlocksForDate(dateKey: string): PlanBlock[] {
+  const day = parseLocalDate(dateKey).getDay(), swimming = [2, 4, 6].includes(day);
+  const daytime = getLegacyBlocksForDate(dateKey, 1).filter(block => !['training', 'sleep'].includes(block.id));
+  const evening: PlanBlock[] = swimming
+    ? [{ id: 'swim-commute', title: '下班直接去游泳', start: '17:00', end: '17:30', kind: 'fixed', category: '生活', actions: [] }]
+    : [{ id: 'overtime', title: '加班', start: '17:00', end: '20:00', kind: 'fixed', category: '加班', actions: [] },
+       { id: 'commute-home', title: '加班后回家', start: '20:00', end: '20:30', kind: 'fixed', category: '生活', actions: [] }];
+  return [
+    { id: 'sleep-morning', title: '继续睡觉，08:00起床', start: '00:00', end: '08:00', kind: 'fixed', category: '生活', actions: [] },
+    ...daytime, ...evening, exerciseBlock(dateKey, swimming),
+    { id: 'wind-down', title: '洗漱与睡前准备', start: '22:00', end: '23:00', kind: 'fixed', category: '生活', actions: [] },
+    { id: 'sleep', title: '睡觉，明早08:00起床', start: '23:00', end: '24:00', kind: 'fixed', category: '生活', actions: [] }
+  ].sort((left, right) => left.start.localeCompare(right.start)) as PlanBlock[];
 }
-export const DEMO_NOTICE = '这是可修改的示例计划，不是医疗建议。训练中出现疼痛、麻木、头晕或其他不适应立即停止，并咨询专业人员。';

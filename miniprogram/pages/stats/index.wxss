@@ -4,13 +4,13 @@
 .week-label { width: 100%; min-width: 0; color: var(--color-text); font-size: 14px; font-weight: 600; text-align: center; line-height: 1.6; overflow-wrap: break-word; }
 .week-controls { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .stats button.week-control, .stats button.current-week { flex: 1 1 0; width: 0; min-width: 0; max-width: none; min-height: 44px; height: auto; margin: 0; padding: 11px 4px; box-sizing: border-box; border-radius: 10px; font-size: 14px; line-height: 1.6; text-align: center; white-space: normal; display: flex; align-items: center; justify-content: center; }
-.stats button.week-control { background: #F2F4F7; color: #344054; }
+.stats button.week-control { background: #F3F5EF; color: #425147; }
 .stats button.current-week { background: var(--color-primary-soft); color: var(--color-primary); }
 .overview { margin-top: 12px; background: var(--color-surface); }
 .overview-label { color: var(--color-muted); font-size: 14px; }
 .overview-number { font-weight: 700; font-size: 48px; line-height: 1.3; color: var(--color-text); margin-top: 8px; }
 .percent-sign { font-size: 23px; margin-left: 2px; }
-.progress-track, .day-progress { border-radius: 8px; background: #E5E7EB; height: 7px; overflow: hidden; }
+.progress-track, .day-progress { border-radius: 8px; background: #E9E7DB; height: 7px; overflow: hidden; }
 .progress-track { margin-top: 18px; }
 .progress-fill { background: var(--color-primary); height: 100%; }
 .training-count { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-training); margin-top: 12px; }
@@ -20,7 +20,7 @@
 .day-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: 10px; row-gap: 4px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
 .day-date { min-width: 0; overflow-wrap: break-word; }
 .count { color: var(--color-muted); font-weight: 400; white-space: nowrap; }
-.day-progress { height: 6px; background: #EAECF0; }
+.day-progress { height: 6px; background: #E9EDE3; }
 .day-progress-fill { background: var(--color-success); height: 100%; }
 .tip { color: var(--color-muted); font-size: 13px; line-height: 1.8; padding: 8px 4px; }
 .metric-grid { display: flex; gap: 12px; }
@@ -40,7 +40,7 @@
 .history-limit { margin-bottom: 12px; }
 .record-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .record-date { color: var(--color-muted); font-size: 13px; }
-.record-status { color: var(--color-muted); font-size: 13px; background: #F2F4F7; padding: 3px 9px; border-radius: 12px; }
+.record-status { color: var(--color-muted); font-size: 13px; background: #F3F5EF; padding: 3px 9px; border-radius: 12px; }
 .status-doing { color: var(--color-primary); background: var(--color-primary-soft); }
 .status-done { color: var(--color-success); background: var(--color-success-soft); }
 .status-deferred { color: var(--color-warning); background: var(--color-warning-soft); }
@@ -49,10 +49,10 @@
 .actual-time { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: 12px; row-gap: 3px; margin-top: 6px; color: var(--color-muted); font-size: 13px; }
 .actual-time text:last-child { text-align: right; overflow-wrap: break-word; }
 .record-note, .record-feedback { margin-top: 10px; font-size: 13px; color: var(--color-muted); line-height: 1.8; overflow-wrap: break-word; }
-.stats .record-events-toggle { width: 100%; max-width: 100%; margin-top: 12px; min-height: 44px; padding: 10px; border-radius: 10px; background: #F2F4F7; color: var(--color-primary); font-size: 13px; white-space: normal; }
+.stats .record-events-toggle { width: 100%; max-width: 100%; margin-top: 12px; min-height: 44px; padding: 10px; border-radius: 10px; background: #F3F5EF; color: var(--color-primary); font-size: 13px; white-space: normal; }
 .record-events { margin-top: 12px; border-top: 1px solid var(--color-border); }
-.record-event { padding: 10px 0; font-size: 14px; color: #344054; }
-.record-event + .record-event { border-top: 1px solid #F2F4F7; }
+.record-event { padding: 10px 0; font-size: 14px; color: #425147; }
+.record-event + .record-event { border-top: 1px solid #F3F5EF; }
 .event-time, .event-reason { margin-top: 4px; font-size: 12px; color: var(--color-muted); line-height: 1.8; overflow-wrap: break-word; }
 @media (max-width: 360px) {
   .stats .week-navigation { padding: 12px 8px; }
@@ -60,3 +60,22 @@
   .stats button.week-control, .stats button.current-week { padding-left: 2px; padding-right: 2px; font-size: 13px; }
   .metric-grid { gap: 8px; }
 }
+
+/* Sunshine page composition. */
+.stats .overview { background: #FFF4D2; border-color: #EFDC9D; border-radius: 24px; padding: 20px; }
+.stats .overview-label { color: #80500D; font-weight: 600; }
+.stats .overview-number { color: var(--color-primary); font-weight: 750; }
+.stats .overview .progress-track { background: #EBDFAA; }
+.stats .overview .subtle, .stats .overview-footnote { color: #73643F; }
+.stats .metric { border-radius: 20px; }
+.stats .metric:first-child { background: var(--color-sky-soft); border-color: #D8EAF3; }
+.stats .metric:first-child .metric-number { color: var(--color-sky); }
+.stats .metric:last-child { background: var(--color-training-soft); border-color: #E4D9F3; }
+.stats .metric:last-child .metric-number { color: var(--color-training); }
+.stats .day, .stats .history-day { border-radius: 20px; }
+.stats .week-navigation { background: #FFFFFF; border-radius: 20px; }
+.stats button.week-control, .stats button.current-week { border-radius: 13px; }
+.stats .history-filter { background: #FFFCF5; }
+.stats .record-status { border-radius: 9px; }
+.stats .record-events-toggle { border-radius: 13px; }
+

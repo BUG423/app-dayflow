@@ -6,7 +6,7 @@
 param(
   [string]$Project=(Split-Path $PSScriptRoot -Parent),
   [string]$WechatIde='E:\Software\微信web开发者工具\wechatide.cmd',
-  [ValidateSet('Validate','Layout','Restore','Poll')][string]$Mode='Validate',
+  [ValidateSet('Validate','Layout','Sunshine','Restore','Poll')][string]$Mode='Validate',
   [ValidateSet('default','narrow')][string]$Label='default',
   [string]$RunDirectory
 )
@@ -46,6 +46,11 @@ $sources=(& node (Join-Path $PSScriptRoot 'acceptance-fixtures.js')|Out-String)|
 if($LASTEXITCODE -ne 0){throw 'Backup helper generation failed.'}
 $wizardSources=(& node (Join-Path $PSScriptRoot 'wizard-acceptance-fixtures.js') (Get-Date).ToString('yyyy-MM-dd')|Out-String)|ConvertFrom-Json -AsHashtable
 if($LASTEXITCODE -ne 0 -or $wizardSources.basic.values['dayflow.plans.v1'].schedules[0].title -ne '上午工作'){throw 'Fixture generation or UTF8 decoding failed before storage access.'}
+$sunSources=$null
+if($Mode -eq 'Sunshine'){
+  $sunSources=(& node (Join-Path $PSScriptRoot 'sunshine-acceptance-fixtures.js') (Get-Date).ToString('yyyy-MM-dd')|Out-String)|ConvertFrom-Json -AsHashtable
+  if($LASTEXITCODE -ne 0 -or $sunSources.sunshine.values['dayflow.plans.v1'].name -ne '阳光节奏合成验收'){throw 'Sunshine fixture generation or UTF8 decoding failed before storage access.'}
+}
 function Wz-Data { return Ux-Page '#schedule-editor' 'editorStep' }
 function Wz-Manifest { return @(Get-ChildItem (Join-Path $script:Project 'miniprogram') -Recurse -File|Sort-Object FullName|ForEach-Object {@{path=[IO.Path]::GetRelativePath($script:Project,$_.FullName);sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}}) }
 function Wz-Snapshot {
@@ -147,7 +152,7 @@ function Wz-Existing {
 function Wz-NoGap {
   Wz-Seed 'siblings';$before=Wz-Snapshot;Tap ".schedule-edit[data-id='wizard-full']";$p=Wz-Next 1
   Assert-That (@($p.freeWindows).Count -eq 0 -and @($p.startTimeRange[0]).Count -eq 0 -and $p.wizardNextDisabled) 'A fully occupying sibling exposes no legal time and cannot be silently overwritten'
-  Assert-That (@($p.occupiedSlots|Where-Object {$_.title -eq '同组全天安排' -and $_.start -eq '00:00' -and $_.end -eq '23:59'}).Count -gt 0 -and $p.timeAvailabilityError) 'The no-gap page names the occupying sibling and its exact range'
+  Assert-That (@($p.occupiedSlots|Where-Object {$_.title -eq '同组全天安排' -and $_.start -eq '00:00' -and $_.end -eq '24:00'}).Count -gt 0 -and $p.timeAvailabilityError) 'The no-gap page names the occupying sibling and its exact range'
   Wz-Layout 'no-gap' @('.wizard-back','.wizard-next');Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Unavailable draft never writes storage'
 }
 function Wz-RejectedFinalSave([string]$Kind){
@@ -204,7 +209,7 @@ function Wz-ExternalFull {
   Wz-Seed 'full';$before=Wz-Snapshot;Wz-Modal $false;$null=Wz-New '合成验收：替换外部全天安排';$p=Wz-Next 1
   Assert-That ('12' -in $p.startTimeRange[0]) 'An external all-day occupation does not disable the selected time'
   $null=Wz-Time 'start' '12:00';$p=Wz-Time 'end' '12:30';Wz-RestoreApis
-  Assert-That ($p.overwriteRequired -and -not $p.overwriteConfirmed -and @($p.overwriteRows|Where-Object {$_.title -eq '全天工作' -and $_.start -eq '00:00' -and $_.end -eq '23:59'}).Count -eq 1) 'Replacing an external full day requires explicit approval of deleting its whole time block'
+  Assert-That ($p.overwriteRequired -and -not $p.overwriteConfirmed -and @($p.overwriteRows|Where-Object {$_.title -eq '全天工作' -and $_.start -eq '00:00' -and $_.end -eq '24:00'}).Count -eq 1) 'Replacing an external full day requires explicit approval of deleting its whole time block'
   Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'An unapproved full-day replacement changes no saved data'
 }
 function Wz-RestSnapshot {
@@ -247,6 +252,98 @@ function Wz-Rest {
   Assert-That (-not $p.restActive -and -not $resumed.rest.active -and $resumed.timer.status -eq 'paused' -and $resumed.doing.status -eq 'aborted') 'Resume restores availability without automatically restarting tasks or timer'
   Wz-Equal $beforeResume $resumed @('plan','versions','snapshots','done','history','records') 'Resuming changes only the rest setting'
 }
+function Sz-Seed([string]$Scenario){
+  $seeded=Evaluate ($sunSources.seedWizard -replace '\r?\n',' ') @($sunSources[$Scenario]);Assert-That $seeded.seeded ('Sunshine synthetic fixture installed: '+$Scenario)
+  $null=Invoke-Ide 'automation_navigate' @('--action','reLaunch','--url','/pages/plans/index') -ProjectTool
+  $null=Wait-UxPage 'pages/plans/index' '.create-schedule' 'schedules'
+}
+function Sz-RepeatBoundary {
+  Sz-Seed 'empty';$before=Wz-Snapshot;$p=Wz-New '合成验收：夜间整理，次日继续保持好状态'
+  Assert-That ($p.repeatModeIndex -eq 0) 'A new arrangement begins with the explicit non-repeating option'
+  $null=Wz-Next 1
+  Ux-Trigger '.schedule-date-picker' 'change' @{value=$sunSources.empty.wednesdayDate}
+  $null=Wz-Time 'start' '23:00';$p=Wz-Time 'end' '24:00'
+  Assert-That ($p.end -eq '24:00' -and '24' -notin $p.startTimeRange[0]) 'A real end picker accepts exactly midnight while start candidates cannot be 24:00'
+  $null=Wz-Next 2;Tap ".repeat-option[data-index='4']";$p=Wz-Data
+  Assert-That ($p.repeatModeIndex -eq 4 -and @($p.selectedWeekdays).Count -eq 1 -and $p.selectedWeekdays[0] -eq 3 -and @($p.repeatChoices|Where-Object {$_.value -eq 4 -and $_.label -eq '每周三'}).Count -eq 1) 'The selected Wednesday offers and selects a direct weekly-Wednesday choice'
+  Tap '.wizard-back';Ux-Trigger '.schedule-date-picker' 'change' @{value=$sunSources.empty.thursdayDate};$null=Wz-Next 2;$p=Wz-Data
+  Assert-That ($p.selectedWeekdays[0] -eq 4 -and @($p.repeatChoices|Where-Object {$_.value -eq 4 -and $_.label -eq '每周四'}).Count -eq 1) 'Changing the arrangement date updates its weekly weekday without clearing the clock range'
+  Tap ".repeat-option[data-index='2']";$p=Wz-Data
+  Assert-That (@($p.selectedWeekdays).Count -eq 5 -and (0 -notin $p.selectedWeekdays) -and (6 -notin $p.selectedWeekdays)) 'Workdays mean Monday through Friday'
+  Tap ".repeat-option[data-index='5']";$p=Wz-Data
+  Assert-That (@($p.selectedWeekdays).Count -eq 2 -and (0 -in $p.selectedWeekdays) -and (6 -in $p.selectedWeekdays)) 'Non-workdays mean Saturday and Sunday without assuming public-holiday adjustments'
+  Tap ".repeat-option[data-index='1']";$p=Wz-Data
+  Assert-That (@($p.selectedWeekdays).Count -eq 7) 'Every day selects all seven weekdays'
+  Tap ".repeat-option[data-index='4']";Wz-Layout 'sunshine-repeat' @('.repeat-option','.wizard-back','.wizard-next')
+  Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Weekly choices and midnight stay in the draft until final confirmation'
+  $null=Wz-Next 3;Wz-Layout 'sunshine-midnight-review' @('.save-schedule','.wizard-back');Tap '.save-schedule'
+  $p=Ux-Page '.create-schedule' 'editorVisible';Assert-That (-not $p.editorVisible) 'The midnight-ending weekly arrangement saves through the actual final button'
+  $after=Wz-Snapshot;$saved=$after.plan|ConvertFrom-Json -AsHashtable
+  $rule=@($saved.schedules|Where-Object {@($_.blocks|Where-Object {$_.title -eq '合成验收：夜间整理，次日继续保持好状态'}).Count -gt 0})
+  Assert-That ($rule.Count -eq 1 -and $rule[0].blocks[0].start -eq '23:00' -and $rule[0].blocks[0].end -eq '24:00' -and @($rule[0].weekdays).Count -eq 1 -and $rule[0].weekdays[0] -eq 4) 'Persisted midnight end and current weekly weekday retain their exact values'
+  Wz-Equal $before $after @('records','history') 'Saving the new weekly arrangement preserves real history'
+}
+function Sz-TemplatePreview {
+  Sz-Seed 'sunshine';$before=Wz-Snapshot
+  Tap '.plan-tools-toggle';Tap '.example-toggle';$p=Ux-Page '.example-schedules' 'exampleRows'
+  Assert-That ($p.examplePreview -and $p.importPreview.ok -and $p.importPreview.template.version -eq 3) 'The new example is validated and previewed as version three'
+  foreach($weekday in 0..6){
+    $rule=@($p.importPreview.template.schedules|Where-Object {$weekday -in $_.weekdays})[0];$blocks=$rule.blocks
+    $training=@($blocks|Where-Object {$_.id -eq 'training'})[0];$swim=$weekday -in @(2,4,6)
+    Assert-That ((@($blocks|Where-Object {$_.id -eq 'overtime'}).Count -eq 0) -eq $swim) ('Only swimming weekdays omit overtime: '+$weekday)
+    if(-not $swim){Assert-That (@($blocks|Where-Object {$_.id -eq 'overtime' -and $_.start -eq '17:00' -and $_.end -eq '20:00'}).Count -eq 1 -and @($blocks|Where-Object {$_.id -eq 'commute-home' -and $_.start -eq '20:00' -and $_.end -eq '20:30'}).Count -eq 1) ('Overtime precedes the return home and late training: '+$weekday)}
+    Assert-That (($swim -and $training.start -eq '17:30' -and $training.end -eq '19:00') -or (-not $swim -and $training.start -eq '20:30' -and $training.end -eq '22:00')) ('Training keeps its ninety-minute reserved window: '+$weekday)
+    Assert-That (@($blocks|Where-Object {$_.id -eq 'wind-down' -and $_.start -eq '22:00' -and $_.end -eq '23:00'}).Count -eq 1 -and @($blocks|Where-Object {$_.id -eq 'sleep-morning' -and $_.start -eq '00:00' -and $_.end -eq '08:00'}).Count -eq 1 -and @($blocks|Where-Object {$_.id -eq 'sleep' -and $_.start -eq '23:00' -and $_.end -eq '24:00'}).Count -eq 1) ('One-hour preparation and exact split overnight occupation remain visible: '+$weekday)
+  }
+  Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Viewing the new example changes no saved plan or execution history'
+}
+function Sz-Page([string]$Name,[string]$Anchor,[string[]]$Controls){
+  $boxes=Ux-Measure $Name (@($Anchor)+$Controls)
+  foreach($i in 1..($boxes.rects.Count-1)){foreach($r in @($boxes.rects[$i])){Assert-That ($r.width -ge 44 -and $r.height -ge 44) ('At least 44px sunshine control: '+$Controls[$i-1])}}
+  Ux-Shot $Name $Anchor
+}
+function Sz-EveningAdoption {
+  Sz-Seed 'custom';$before=Wz-Snapshot
+  $lockedBefore=Evaluate "function(date){return {dayflowSmoke:true,value:JSON.stringify(wx.getStorageSync('dayflow.instances.v1')[date])};}" @($sunSources.custom.date)
+  Tap '.plan-tools-toggle';Tap '.evening-update-toggle';$p=Ux-Page '.confirm-evening-update' 'eveningPreview'
+  Assert-That ($p.eveningPreview -and $p.importPreview.ok) 'Existing custom plans can preview an evening-only update without using full template import'
+  Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Previewing an evening-only update changes nothing'
+  Wz-Modal $false;Tap '.confirm-evening-update';Wz-RestoreApis
+  Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Cancelling the evening update preserves the whole original custom plan'
+  Wz-Modal $true;Tap '.confirm-evening-update';Wz-RestoreApis;$p=Ux-Page '.create-schedule' 'templateVersion';$after=Wz-Snapshot
+  $old=$before.plan|ConvertFrom-Json -AsHashtable;$saved=$after.plan|ConvertFrom-Json -AsHashtable
+  Assert-That ($saved.version -eq $old.version+1) 'Confirming the evening-only update creates one plan version'
+  foreach($weekday in 0..6){
+    $date=Local-DatePlus $sunSources.custom.wednesdayDate $weekday
+    $day=([datetime]::ParseExact($date,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture)).DayOfWeek.value__
+    $active=@($saved.schedules|Where-Object {$_.effectiveFrom -le $date -and (-not $_.effectiveTo -or $_.effectiveTo -ge $date) -and $day -in $_.weekdays})
+    $blocks=@($active|ForEach-Object {$exception=@($_.exceptions|Where-Object {$_.date -eq $date});if($exception.Count){if($exception[0].kind -eq 'replace'){$exception[0].blocks}}else{$_.blocks}})
+    Assert-That (@($blocks|Where-Object {$_.id -eq 'work-morning' -and $_.title -eq '自定义白天工作' -and $_.start -eq '08:00' -and $_.end -eq '12:00'}).Count -eq 1) ('Evening adoption preserves custom 08:00-12:00 daytime work: '+$date)
+    $swim=$day -in @(2,4,6);$training=@($blocks|Where-Object {$_.category -eq '训练'})
+    Assert-That ($training.Count -eq 1 -and (($swim -and $training[0].start -eq '17:30' -and $training[0].end -eq '19:00') -or (-not $swim -and $training[0].start -eq '20:30' -and $training[0].end -eq '22:00'))) ('Evening adoption changes the future training window on '+$date)
+    Assert-That ((@($blocks|Where-Object {$_.category -eq '加班'}).Count -eq 0) -eq $swim) ('Evening adoption omits overtime exactly on swimming days: '+$date)
+  }
+  $oldInterest=@($old.schedules|Where-Object {$_.id -eq 'sunshine-custom-interest'})[0];$newInterest=@($saved.schedules|Where-Object {$_.id -eq 'sunshine-custom-interest'})[0]
+  Assert-That ((ConvertTo-Json $oldInterest -Depth 70 -Compress) -eq (ConvertTo-Json $newInterest -Depth 70 -Compress)) 'A separate personal-interest example and all its identities remain unchanged'
+  $lockedAfter=Evaluate "function(date){return {dayflowSmoke:true,value:JSON.stringify(wx.getStorageSync('dayflow.instances.v1')[date])};}" @($sunSources.custom.date)
+  Assert-That ($lockedAfter.value -eq $lockedBefore.value) 'The current completed day keeps its original locked snapshot'
+  Wz-Equal $before $after @('records','history') 'Evening adoption preserves completed facts and historical snapshots'
+}
+function Sz-FivePages {
+  Sz-Seed 'sunshine';$before=Wz-Snapshot
+  Sz-Page 'sunshine-plans' '.plans' @('.create-schedule','.plan-tools-toggle')
+  $p=Ux-Go 'pages/today/index' '.today-jump' 'selectedDate'
+  Assert-That (@($p.blocks|Where-Object {$_.id -eq 'sleep-morning' -and $_.start -eq '00:00' -and $_.end -eq '08:00'}).Count -eq 1 -and @($p.blocks|Where-Object {$_.id -eq 'sleep' -and $_.start -eq '23:00' -and $_.end -eq '24:00'}).Count -eq 1) 'The actual today page displays both exact midnight sleep segments'
+  Sz-Page 'sunshine-today' '.today' @('.today-jump','.rest-day-open')
+  $null=Ux-Go 'pages/stats/index' '.overview' 'weeklyTotal';Sz-Page 'sunshine-stats' '.stats' @('.previous-week','.current-week','.next-week','.history-apply')
+  $null=Ux-Go 'pages/profile/index' '.settings-group' 'expandedSection'
+  Tap ".profile-section[data-section='reminders']";Sz-Page 'sunshine-profile' '.profile' @('.profile-section','.time-setting','.sleep-reminder','.task-reminder')
+  $null=Invoke-Ide 'automation_navigate' @('--action','navigateTo','--url',('/pages/training/index?date='+$sunSources.sunshine.date+'&blockId=training')) -ProjectTool
+  $p=Wait-UxPage 'pages/training/index' '.execution-controls' 'actions';Assert-That ($p.actions.Count -gt 0) 'The actual training page renders the new reserved-window steps'
+  Sz-Page 'sunshine-training' '.training' @('.execution-controls .button-primary','.phase-picker')
+  Ux-Shot 'sunshine-training-actions' '.exercise'
+  Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Navigating and expanding all five pages never edits saved execution facts'
+}
 Save-State;$exitCode=0
 try{
   $status=Find-Object (Invoke-Ide 'check_wechatide_status' @('--skill-version','0.3.11')) 'versionRelation'
@@ -264,11 +361,17 @@ try{
     if($Mode -eq 'Restore'){Wz-RestoreInterface;$script:State.outcome='restored'}else{
       $snapshot=Evaluate ($sources.backup -replace '\r?\n',' ') @($sources.keys);Save-Json $snapshot (Join-Path $script:RunDirectory 'all-dayflow-backup.json') -PreserveValues
       $script:State.restoreNeeded=$true;Save-State;$manifest=Wz-Manifest;Save-Json $manifest (Join-Path $script:RunDirectory 'source-manifest.json')
-      foreach($page in @('plans','today','training')){foreach($suffix in @('wxml','wxss')){$null=Invoke-Ide ('compile_'+$suffix) @('--file-path',("pages/$page/index.$suffix")) -ProjectTool}}
-      Wz-Basic
-      if($Mode -eq 'Validate'){Wz-Existing;Wz-RejectedFinalSave 'version';Wz-RejectedFinalSave 'locked';Wz-Identity;Wz-Overwrite;Wz-ExternalFull}
-      Wz-NoGap
-      Wz-Rest
+      $pages=if($Mode -eq 'Sunshine'){@('plans','today','training','stats','profile')}else{@('plans','today','training')}
+      foreach($page in $pages){foreach($suffix in @('wxml','wxss')){$null=Invoke-Ide ('compile_'+$suffix) @('--file-path',("pages/$page/index.$suffix")) -ProjectTool}}
+      if($Mode -eq 'Sunshine'){
+        Sz-RepeatBoundary;Sz-TemplatePreview;Sz-EveningAdoption;Sz-FivePages
+        if($Label -eq 'default'){Wz-Overwrite}
+        Wz-Rest
+      }else{
+        Wz-Basic
+        if($Mode -eq 'Validate'){Wz-Existing;Wz-RejectedFinalSave 'version';Wz-RejectedFinalSave 'locked';Wz-Identity;Wz-Overwrite;Wz-ExternalFull}
+        Wz-NoGap;Wz-Rest
+      }
       Save-Json (Invoke-Ide 'get_simulator_console' @('--command','grep -n .') -ProjectTool) (Join-Path $script:RunDirectory 'console-all.local.json')
       Assert-That ((ConvertTo-Json $manifest -Compress) -eq (ConvertTo-Json (Wz-Manifest) -Compress)) 'Business source files stayed frozen throughout simulator acceptance'
       $script:State.outcome='interaction-pass-visual-review-required';$script:State.simulatorInteractionVerified=$true
@@ -276,7 +379,7 @@ try{
   }
 }catch{$exitCode=1;if(-not $script:Pending){$script:State.outcome='failed'};$message=$_.Exception.Message;if($script:Token){$message=$message.Replace($script:Token,'[REDACTED]')};$script:State.error=$message;Write-Warning $message}
 finally{
-  if($Mode -in @('Validate','Layout') -and $script:State.restoreNeeded -and -not $script:Pending){
+  if($Mode -in @('Validate','Layout','Sunshine') -and $script:State.restoreNeeded -and -not $script:Pending){
     try{Wz-RestoreInterface}catch{$exitCode=1;$script:State.outcome='restoration-required';$script:State.restoreNeeded=$true;$script:State.error=$_.Exception.Message;Write-Warning 'Keep the original backup and use Restore before another test.'}
   }
   $script:State.finished=(Get-Date).ToString('o');Save-State;Write-Host "Result: $($script:State.outcome). Evidence: $script:RunDirectory"

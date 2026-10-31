@@ -1,5 +1,5 @@
 <view class="page training">
-  <view class="page-title">{{title}}</view>
+  <view class="title-line"><view class="heading-mark training-mark" aria-hidden="true"></view><view class="page-title">{{title}}</view></view>
   <view class="subtle">{{dateKey}} · {{time}}</view>
   <view wx:if="{{loadError}}" class="page-error">{{loadError}}</view>
   <view wx:if="{{restActive}}" class="rest-day-notice card"><view class="rest-day-title">今天休息，执行已暂停</view><view wx:if="{{restReason}}" class="rest-day-reason">{{restReason}}</view><view class="field-help">动作说明和已完成记录仍可查看。需要继续时，先恢复今天的安排，再手动开始。</view><button class="view-rest-day" bindtap="onViewRestDay">到今日页恢复安排</button></view>
@@ -15,7 +15,7 @@
     <view class="field-help">{{timerTargetTitle}} · 点击调整</view>
   </view>
   <view wx:if="{{isTrainingBlock}}" class="card phase-summary">
-    <view class="phase-row"><text>当前阶段</text><picker range="{{phaseOptions}}" value="{{phaseIndex}}" bindchange="onTrainingPhaseChange"><view class="phase-picker">{{trainingPhase || '基础'}}　⌄</view></picker></view>
+    <view class="phase-row"><text>当前阶段</text><picker range="{{phaseOptions}}" value="{{phaseIndex}}" bindchange="onTrainingPhaseChange"><view class="phase-picker"><text class="picker-value">{{trainingPhase || '基础'}}</text><view class="chevron" aria-hidden="true"></view></view></picker></view>
     <view wx:if="{{phaseDescription}}" class="field-help">{{phaseDescription}}</view>
     <view class="field-help">阶段由你选择，参考次数不会强制解锁。</view>
   </view>
@@ -43,7 +43,7 @@
     <view class="description">{{action.description}}</view>
     <view wx:if="{{action.equipment}}" class="action-detail">器材：{{action.equipment}}</view>
     <view wx:if="{{action.safety}}" class="action-safety">注意：{{action.safety}}</view>
-    <view wx:if="{{action.searchKeyword}}" class="search" data-keyword="{{action.searchKeyword}}" bindtap="onCopyKeyword">复制示范检索词：{{action.searchKeyword}}　↗</view>
+    <view wx:if="{{action.searchKeyword}}" class="search" data-keyword="{{action.searchKeyword}}" bindtap="onCopyKeyword">复制示范检索词：{{action.searchKeyword}}</view>
     <view class="exercise-actions">
       <button class="button-secondary" disabled="{{restActive}}" data-id="{{action.id}}" bindtap="onActionMenu">调整状态</button>
       <button class="button-secondary open-feedback" data-id="{{action.id}}" bindtap="onOpenFeedback">记录感受</button>
@@ -64,9 +64,9 @@
       <view class="field-help">{{feedbackTargetTitle}}</view>
       <view class="form-field">
         <label class="field-label">{{isTrainingBlock ? '主观用力程度' : '主观投入程度'}}：{{feedbackEffort}} / 5</label>
-        <slider min="1" max="5" step="1" value="{{feedbackEffort}}" activeColor="#6D28D9" bindchange="onFeedbackEffortChange" aria-label="{{isTrainingBlock ? '主观用力程度' : '主观投入程度'}}" />
+        <slider min="1" max="5" step="1" value="{{feedbackEffort}}" activeColor="#6B45A6" bindchange="onFeedbackEffortChange" aria-label="{{isTrainingBlock ? '主观用力程度' : '主观投入程度'}}" />
       </view>
-      <view class="feedback-switch"><text>本次有不适感</text><switch checked="{{feedbackDiscomfort}}" color="#2563EB" bindchange="onFeedbackDiscomfortChange" aria-label="本次有不适感" /></view>
+      <view class="feedback-switch"><text>本次有不适感</text><switch checked="{{feedbackDiscomfort}}" color="#C33F20" bindchange="onFeedbackDiscomfortChange" aria-label="本次有不适感" /></view>
       <view wx:if="{{feedbackDiscomfort && isTrainingBlock}}" class="action-safety">请停止或降低强度，并请专业人员审核；无需勉强完成。</view>
       <view wx:if="{{feedbackDiscomfort && !isTrainingBlock}}" class="field-help">可以暂停或调整安排，无需勉强完成。</view>
       <view class="form-field">
@@ -102,7 +102,7 @@
     <view class="modal-card">
       <view class="modal-title">选择延期日期</view>
       <view class="modal-subtitle">{{deferTargetTitle}}</view>
-      <view class="form-field"><label class="field-label">安排到哪一天</label><picker mode="date" value="{{deferDate}}" bindchange="onDeferDateChange"><view class="form-picker">{{deferDate}}　⌄</view></picker></view>
+      <view class="form-field"><label class="field-label">安排到哪一天</label><picker mode="date" value="{{deferDate}}" bindchange="onDeferDateChange"><view class="form-picker"><text class="picker-value">{{deferDate}}</text><view class="chevron" aria-hidden="true"></view></view></picker></view>
       <view class="field-help">保存后仅标记延期，可到计划页一键安排目标日任务。</view>
       <view class="button-row"><button class="button-primary" bindtap="onConfirmDefer">确认延期</button><button class="button-secondary" bindtap="onCancelDefer">取消</button></view>
     </view>

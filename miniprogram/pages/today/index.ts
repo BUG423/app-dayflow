@@ -77,7 +77,7 @@ Page({
       const blocks: UIBlock[] = raw.map(block => {
         const count = blockProgress(block, records), state = date === today ? timeState(block.start, block.end, now) : '';
         return { ...block,
-          colorCategory: block.category === '加班' || block.title === '加班' ? 'overtime' : block.category === '训练' ? 'training' : block.category === '兴趣' ? 'interest' : block.category === '工作' ? 'work' : 'life',
+          colorCategory: block.category === '加班' || block.title === '加班' ? 'overtime' : block.category === '训练' ? (block.title.includes('游泳') ? 'swim' : 'training') : block.category === '兴趣' ? 'interest' : block.category === '工作' ? 'work' : 'life',
           actions: block.actions.map(action => ({ ...action, done: records[action.id] === 'done',
             status: records[action.id] || 'todo', statusText: restActive && (!records[action.id] || records[action.id] === 'todo') ? '今日休息' : STATUS_LABELS[records[action.id] || 'todo'],
             deferredTo: details[action.id]?.deferredTo || '',

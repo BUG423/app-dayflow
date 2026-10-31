@@ -124,6 +124,7 @@ test('真实进行中的任务优先于时段卡片，训练中止保留已完�
   assert.equal(today.data.heroCaption, '正在执行');
   assert.equal(today.data.blocks.find(block => block.id === 'music').actions[0].statusText, '进行中');
   const training = runtime.page('training'); training.onLoad({ date, blockId: 'training' });
+  training.onToggleAction({ currentTarget: { dataset: { id: 'd6-prepare' } } });
   training.onToggleAction({ currentTarget: { dataset: { id: 'd6-step-0' } } });
   training.onStop();
   runtime.calls.modals.at(-1).success({ confirm: true });
@@ -196,8 +197,8 @@ test('训练页照片动作调用持久化与上传服务，取消移除保留�
   const page = runtime.page('training'); page.onLoad({ date, blockId: 'training' });
   await page.onChoosePhoto({ currentTarget: { dataset: { id: 'd6-step-0' } } });
   assert.deepEqual(calls[0], ['choose', date, 'd6-step-0']);
-  assert.equal(page.data.actions[0].photos.length, 1);
-  assert.equal(page.data.actions[0].done, false);
+  assert.equal(page.data.actions.find(action => action.id === 'd6-step-0').photos.length, 1);
+  assert.equal(page.data.actions.find(action => action.id === 'd6-step-0').done, false);
   await page.onUploadPhoto({ currentTarget: { dataset: { photoId: 'photo-1' } } });
   await page.onPreviewPhoto({ currentTarget: { dataset: { path: '/saved/photo.jpg' } } });
   assert.equal(runtime.calls.previews[0].current, '/saved/photo.jpg');

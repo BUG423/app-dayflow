@@ -20,7 +20,10 @@ test('主题普通文字与语义标签的实际色值具有至少4.5对比度',
     .map(match => [match[1], match[2]]));
   for (const [text, surface] of [['text', 'surface'], ['muted', 'surface'], ['muted', 'bg'],
     ['primary', 'surface'], ['primary', 'primary-soft'], ['success', 'success-soft'],
-    ['warning', 'warning-soft'], ['danger', 'danger-soft'], ['training', 'training-soft']]) {
+    ['warning', 'warning-soft'], ['danger', 'danger-soft'], ['training', 'training-soft'],
+    ['sky', 'sky-soft'], ['interest', 'interest-soft'], ['text', 'sun'], ['text', 'sun-soft'],
+    ['muted', 'primary-soft'], ['muted', 'training-soft'], ['muted', 'sky-soft'],
+    ['muted', 'interest-soft'], ['muted', 'success-soft'], ['muted', 'warning-soft'], ['muted', 'danger-soft']]) {
     assert.ok(tokens[text] && tokens[surface], text + '/' + surface + ' token missing');
     assert.ok(contrast(tokens[text], tokens[surface]) >= 4.5, text + '/' + surface + ' contrast too low');
   }

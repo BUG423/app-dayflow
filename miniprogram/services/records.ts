@@ -1,6 +1,6 @@
 import { getDayBlocks, lockDailyInstance } from './plans';
 import { assertExecutionAllowed } from './rest-day-store';
-import { getBlocksForDate } from '../data/template';
+import { getLegacyBlocksForDate } from '../data/legacy-template';
 import { validId, checkDate, checkStatus, checkFeedback, validateEnvelope, validateLegacyRecords } from '../utils/record-validation';
 export { validateEnvelope } from '../utils/record-validation';
 import { ExecutionRecord, RecordEnvelope, TaskStatus, TrainingFeedback } from '../types/domain';
@@ -29,7 +29,7 @@ function migrateLegacy(): RecordEnvelope {
   validateLegacyRecords(legacy);
   for (const date of Object.keys(legacy)) {
     checkDate(date); if (!isMap(legacy[date])) throw new Error('旧版当天记录数据损坏');
-    const targets = getBlocksForDate(date).reduce((items: any[], block) => items.concat(block.actions.map(action => ({
+    const targets = getLegacyBlocksForDate(date, 1).reduce((items: any[], block) => items.concat(block.actions.map(action => ({
       id: action.id, taskId: block.kind === 'sequence' ? 'training-task' : action.id,
       actionId: block.kind === 'sequence' ? action.id : undefined
     }))), []);

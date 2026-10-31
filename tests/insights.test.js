@@ -54,7 +54,12 @@ test('训练延期安排保留训练统计分类，未来整周不提前计入�
   records.setStatus(placed.date, placed.targetId, 'done');
   const insights = runtime.load('miniprogram/services/insights.ts');
   const summary = insights.getWeeklySummary('2026-10-31');
-  assert.equal(summary.trainingCompleted, 1); assert.equal(summary.trainingTotal, 28);
+  // Only Friday has a historical execution fact and is frozen against v1.
+  // The other sample days follow the explicitly saved v3 template, while the
+  // current Saturday adds the separately deferred training action.
+  assert.equal(summary.trainingCompleted, 1); assert.equal(summary.trainingTotal, 38);
+  assert.deepEqual(clone(summary.days.map(day => day.trainingTotal)), [9,4,9,4,7,5]);
+  assert.equal(plans.getDailyInstance('2026-10-30').templateVersion, 1);
   assert.equal(insights.getWeeklySummary('2026-11-03').total, 0);
 });
 

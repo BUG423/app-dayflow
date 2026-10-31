@@ -1,5 +1,5 @@
 import { PlanTemplate, TimeBlock, ImportPreview } from '../types/domain';
-import { parseLocalDate, minutesOf, shiftDays } from './calendar';
+import { parseLocalDate, minutesOf, endMinutesOf, shiftDays } from './calendar';
 
 const object = (value: any) => value && typeof value === 'object' && !Array.isArray(value);
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
@@ -30,9 +30,9 @@ export function validatePlan(input: any): ImportPreview {
   }
   function times(value: any, label: string, parent?: any) {
     try {
-      const start = minutesOf(value.start), end = minutesOf(value.end);
+      const start = minutesOf(value.start), end = endMinutesOf(value.end);
       if (start >= end) error(label + '结束时间必须晚于开始时间');
-      if (parent && (start < minutesOf(parent.start) || end > minutesOf(parent.end))) error(label + '时间必须位于所属时间范围内');
+      if (parent && (start < minutesOf(parent.start) || end > endMinutesOf(parent.end))) error(label + '时间必须位于所属时间范围内');
     } catch (_err) { error(label + '时间须为有效的小时和分钟'); }
   }
   function blocks(values: any, label: string) {
@@ -66,11 +66,11 @@ export function validatePlan(input: any): ImportPreview {
           ['dosage','equipment','searchKeyword'].forEach(field => text(action[field], actionName + '说明', true, 300));
           ['description','safety'].forEach(field => text(action[field], actionName + '说明', true, 2000));
           if (block.kind === 'sequence') {
-            try { if (minutesOf(action.start) < previousEnd) error(name + '顺序动作不能重叠或倒序'); previousEnd = minutesOf(action.end); } catch (_err) {}
+            try { if (minutesOf(action.start) < previousEnd) error(name + '顺序动作不能重叠或倒序'); previousEnd = endMinutesOf(action.end); } catch (_err) {}
           }
         });
         if (block.kind === 'sequence' && !task.actions.length) {
-          try { if (minutesOf(task.start) < previousEnd) error(name + '顺序任务不能重叠或倒序'); previousEnd = minutesOf(task.end); } catch (_err) {}
+          try { if (minutesOf(task.start) < previousEnd) error(name + '顺序任务不能重叠或倒序'); previousEnd = endMinutesOf(task.end); } catch (_err) {}
         }
       });
     });

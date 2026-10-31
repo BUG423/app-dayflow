@@ -7,15 +7,15 @@
     "pages/profile/index"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#F5F6F8",
+    "navigationBarBackgroundColor": "#FFFAF1",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "日程流",
-    "backgroundColor": "#F5F6F8",
+    "backgroundColor": "#FFFAF1",
     "backgroundTextStyle": "light"
   },
   "tabBar": {
-    "color": "#667085",
-    "selectedColor": "#2563EB",
+    "color": "#666E65",
+    "selectedColor": "#C33F20",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "white",
     "list": [

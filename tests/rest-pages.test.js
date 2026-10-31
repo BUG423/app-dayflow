@@ -33,12 +33,13 @@ test('确认今天休息展示全日暂停且保留完成，停止当前执行�
   page.onLoad(); records.setStatus(date, 'music-guitar', 'done'); records.setStatus(date, 'music-vocal', 'doing');
   timer.startTimer(date, 'music-vocal', 120); preferences.savePreferences({ taskReminderEnabled: true, leadMinutes: 0 });
   const completed = clone(records.recordDetailsForDate(date)['music-guitar']);
+  page.refresh(); const progressBeforeRest = page.data.doneLabel;
   page.onOpenRest(); page.onRestReasonInput(input('出行请假'));
   runtime.setNow(new Date(2026, 9, 31, 12, 5)); page.onConfirmRest();
   assert.equal(page.data.restActive, true); assert.equal(page.data.restReason, '出行请假');
   assert.equal(page.data.heroTitle, '今天休息'); assert.equal(page.data.restEditorVisible, false);
   assert.ok(page.data.blocks.every(block => block.stateText === '今日休息'));
-  assert.equal(page.data.doneLabel, '1 / 4');
+  assert.equal(page.data.doneLabel, progressBeforeRest); assert.match(page.data.doneLabel, /^1 \/ /);
   assert.deepEqual(clone(records.recordDetailsForDate(date)['music-guitar']), completed);
   assert.equal(records.recordDetailsForDate(date)['music-vocal'].status, 'aborted');
   assert.equal(timer.getTimer().status, 'paused'); assert.equal(timer.getTimer().remainingSeconds, 60);

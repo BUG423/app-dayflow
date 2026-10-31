@@ -1,6 +1,7 @@
 import { getBlocksForDate, PlanBlock, PlanAction } from '../data/template';
+import { getLegacyBlocksForDate } from '../data/legacy-template';
 import { Action, DailyInstance, ImportPreview, PlanTemplate, Schedule, Task, TimeBlock } from '../types/domain';
-import { localDateKey, parseLocalDate, minutesOf, shiftDays } from '../utils/calendar';
+import { localDateKey, parseLocalDate, minutesOf, endMinutesOf, shiftDays } from '../utils/calendar';
 import { resolveBlocks, validatePlan } from '../utils/plan-validation';
 import { validateEnvelope, validateLegacyRecords } from '../utils/record-validation';
 import { sortScheduleTimes, prepareScheduleIdentities } from '../utils/plan-identities';
@@ -8,6 +9,7 @@ import { blocksOnDate } from '../utils/schedule-occurrences';
 import { AvailabilityOptions, AvailabilityResult, PlanningConflict, findScheduleConflicts, findPlanConflicts, getBlockAvailability } from '../utils/planning-availability';
 import { getTimer } from './timer';
 import { prepareScheduleOverwrite, OverwriteRemoval } from '../utils/plan-overwrite';
+import { removeFutureOvertime } from '../utils/evening-routine';
 
 const PLAN_KEY = 'dayflow.plans.v1';
 const INSTANCE_KEY = 'dayflow.instances.v1';
@@ -26,11 +28,11 @@ function validated(value: any): PlanTemplate {
   if (!result.ok) throw new Error(result.errors.join('；'));
   return result.template;
 }
-function defaultTemplate(includeEveningWork = true): PlanTemplate {
+function defaultTemplate(version: 1 | 2 | 3 = 3): PlanTemplate {
   const schedules: Schedule[] = [];
   for (let weekday = 0; weekday < 7; weekday++) {
     const key = shiftDays('2026-11-01', weekday);
-    const blocks = getBlocksForDate(key).filter(block => includeEveningWork || block.id !== 'overtime').map(block => {
+    const blocks = (version === 3 ? getBlocksForDate(key) : getLegacyBlocksForDate(key, version)).map(block => {
       const tasks: Task[] = block.kind === 'fixed' ? [] : block.kind === 'parallel'
         ? block.actions.map(action => ({ ...action, actions: [] }))
         : [{ id: 'training-task', title: block.title, start: block.start, end: block.end, actions: block.actions.map(action => ({ ...action })) }];
@@ -38,11 +40,11 @@ function defaultTemplate(includeEveningWork = true): PlanTemplate {
     });
     schedules.push({ id: 'weekday-' + weekday, title: ['周日','周一','周二','周三','周四','周五','周六'][weekday] + '示例安排', weekdays: [weekday], effectiveFrom: '2000-01-01', exceptions: [], blocks });
   }
-  return { schemaVersion: 1, id: 'dayflow-plan', name: '每日示例计划', version: includeEveningWork ? 2 : 1, updatedAt: 0, schedules };
+  return { schemaVersion: 1, id: 'dayflow-plan', name: '每日示例计划', version, updatedAt: 0, schedules };
 }
 /** Earlier records without a saved plan were created against the original built-in example. */
 function historicalTemplate(current: PlanTemplate): PlanTemplate {
-  return read(PLAN_KEY) === undefined ? defaultTemplate(false) : current;
+  return read(PLAN_KEY) === undefined ? defaultTemplate(1) : current;
 }
 export function getTemplate(): PlanTemplate {
   const value = read(PLAN_KEY);
@@ -64,7 +66,7 @@ export function validateInstances(value: any): void {
     if (!preview.ok) throw new Error('日程快照数据损坏，请先导出并检查');
     if (item.mode === 'emergency') {
       const training = item.blocks.filter((block: TimeBlock) => block.category === '训练' || block.id === 'training');
-      if (training.length !== 1 || training[0].kind !== 'sequence' || minutesOf(training[0].end) - minutesOf(training[0].start) !== 15) throw new Error('简化方案快照无效，须保留十五分钟训练');
+      if (training.length !== 1 || training[0].kind !== 'sequence' || endMinutesOf(training[0].end) - minutesOf(training[0].start) !== 15) throw new Error('简化方案快照无效，须保留十五分钟训练');
     }
   }
 }
@@ -75,6 +77,11 @@ function rebaseEmergency(item: DailyInstance, template: PlanTemplate): DailyInst
   const base = build(item.date, template);
   base.blocks = base.blocks.filter(block => block.category !== '训练' && block.id !== 'training').concat(clone(item.blocks.filter(block => block.category === '训练' || block.id === 'training'))).sort((a, b) => a.start.localeCompare(b.start));
   base.mode = 'emergency'; base.createdAt = item.createdAt;
+  const training = base.blocks.filter(block => block.category === '训练' || block.id === 'training');
+  // An explicit old simplification keeps its actual time. Moving the surrounding
+  // evening must not silently place that selection inside new work occupation.
+  if (training.some(selected => base.blocks.some(block => !training.includes(block)
+      && minutesOf(selected.start) < endMinutesOf(block.end) && minutesOf(block.start) < endMinutesOf(selected.end)))) return clone(item);
   try { validateInstances({ [item.date]: base }); } catch (_err) { throw new Error('新计划与已选简化方案不兼容，请先恢复标准方案后编辑'); }
   return base;
 }
@@ -125,7 +132,9 @@ export function getDailyInstance(date: string): DailyInstance {
   if (existing && recorded && !existing.locked) { existing.locked = true; wx.setStorageSync(INSTANCE_KEY, saved); return clone(existing); }
   if (existing && date < today() && !existing.locked) { existing.locked = true; wx.setStorageSync(INSTANCE_KEY, saved); return clone(existing); }
   if (existing && !existing.locked && existing.mode === 'emergency' && (existing.templateVersion !== template.version || existing.templateId !== template.id)) {
-    saved[date] = rebaseEmergency(existing, template); wx.setStorageSync(INSTANCE_KEY, saved); return clone(saved[date]);
+    const rebased = rebaseEmergency(existing, template);
+    if (JSON.stringify(rebased) === JSON.stringify(existing)) return clone(existing);
+    saved[date] = rebased; wx.setStorageSync(INSTANCE_KEY, saved); return clone(saved[date]);
   }
   if (existing && (existing.locked || (existing.templateId === template.id && existing.templateVersion === template.version))) {
     if (!existing.locked && date < today()) { existing.locked = true; wx.setStorageSync(INSTANCE_KEY, saved); }
@@ -335,6 +344,53 @@ export function saveScheduleOverwrite(schedule: Schedule, expectedVersion: numbe
     throw new Error(recovered ? '替换未能保存，原计划和记录已保留，请稍后重试' : '替换未完成，部分数据恢复失败，请先检查本机数据');
   }
 }
+export interface EveningRoutineUpdatePreview {
+  ok: boolean; template?: PlanTemplate; removed: OverwriteRemoval[]; lease: string; errors: string[]; routines: Schedule[];
+  summary: { from: string; days: number; replaced: number; keepsToday: boolean };
+}
+/** Opt-in update of only morning sleep and evening occupation, preserving daytime customization. */
+export function previewEveningRoutineUpdate(expectedVersion?: number): EveningRoutineUpdatePreview {
+  const date = today(), empty: EveningRoutineUpdatePreview = { ok: false, removed: [], lease: '', errors: [], routines: [], summary: { from: date, days: 7, replaced: 0, keepsToday: false } };
+  try {
+    const current = getTemplate();
+    if (expectedVersion !== undefined && current.version !== expectedVersion) throw new Error('计划已更新，请重新预览晚间作息后再确认。');
+    const excludedDates = immutableDates(), stripped = removeFutureOvertime(current, date, excludedDates);
+    let candidate = stripped.template;
+    const removed = stripped.removed.slice(), routines: Schedule[] = [];
+    for (const example of defaultTemplate(3).schedules) {
+      const weekday = example.weekdays[0];
+      const draft: Schedule = { ...example, id: 'evening-v3-' + weekday + '-' + date.replace(/-/g, ''),
+        title: ['周日','周一','周二','周三','周四','周五','周六'][weekday] + '晚间作息', effectiveFrom: date,
+        blocks: example.blocks.filter(block => !['work-morning','music','work-afternoon'].includes(block.id)) };
+      const identity = prepareScheduleIdentities(candidate, draft);
+      const prepared = prepareScheduleOverwrite(candidate, identity.schedule, { notBefore: date, excludedDates });
+      candidate = prepared.template; removed.push(...prepared.removed); routines.push(prepared.schedule);
+    }
+    const checked = validatePlan(candidate);
+    if (!checked.ok) throw new Error(readablePlanErrors(checked.errors, candidate).join('；'));
+    for (const routine of routines) {
+      const conflicts = findScheduleConflicts(candidate, routine, { notBefore: date, excludedDates });
+      if (conflicts.length) throw new Error(conflicts[0].message);
+    }
+    assertOverwriteTimerPreserved(current, candidate);
+    const lease = JSON.stringify({ current, candidate, removed, excludedDates, date });
+    return { ok: true, template: clone(candidate), removed: clone(removed), lease, errors: [], routines: clone(routines),
+      summary: { from: date, days: 7, replaced: removed.length, keepsToday: excludedDates.includes(date) } };
+  } catch (error) { return { ...empty, errors: [error && error.message || '暂时无法更新晚间作息，原计划已保留。'] }; }
+}
+export function saveEveningRoutineUpdate(expectedVersion: number, confirmedLease: string): PlanTemplate {
+  const preview = previewEveningRoutineUpdate(expectedVersion);
+  if (!preview.ok || !preview.template) throw new Error(preview.errors.join('；'));
+  if (!confirmedLease || preview.lease !== confirmedLease) throw new Error('晚间作息或影响范围已变化，请重新预览确认，原计划已保留。');
+  const keys = wx.getStorageInfoSync().keys;
+  const backups = [PLAN_KEY, VERSIONS_KEY, INSTANCE_KEY].map(key => ({ key, exists: keys.includes(key), value: wx.getStorageSync(key) }));
+  try { return saveTemplate(preview.template, expectedVersion); }
+  catch (_error) {
+    let recovered = true;
+    backups.reverse().forEach(item => { try { if (item.exists) wx.setStorageSync(item.key, item.value); else wx.removeStorageSync(item.key); } catch (_rollbackError) { recovered = false; } });
+    throw new Error(recovered ? '晚间作息未能保存，原计划和记录已保留，请稍后重试' : '更新未完成，部分数据恢复失败，请先检查本机数据');
+  }
+}
 export function deleteSchedule(scheduleId: string, expectedVersion?: number): PlanTemplate {
   const template = getTemplate();
   if (!template.schedules.some(item => item.id === scheduleId)) throw new Error('未找到该日程规则');
@@ -364,7 +420,7 @@ export function importTemplate(text: string, expectedVersion?: number): PlanTemp
 }
 export function exportTemplate(): string { return JSON.stringify(getTemplate(), null, 2); }
 /** Preview only: callers must use the ordinary validated import confirmation to apply it. */
-export function exportDefaultTemplate(): string { return JSON.stringify(defaultTemplate(), null, 2); }
+export function exportDefaultTemplate(version: 1 | 2 | 3 = 3): string { return JSON.stringify(defaultTemplate(version), null, 2); }
 function hhmm(minute: number) { return String(Math.floor(minute / 60)).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0'); }
 export function setEmergencyPlan(date: string, enabled: boolean, blockId?: string): DailyInstance {
   assertDate(date);
@@ -379,7 +435,7 @@ export function setEmergencyPlan(date: string, enabled: boolean, blockId?: strin
   if (!training.length) throw new Error('这一天没有可简化的训练时间块');
   if (blockId && !training.some(block => block.id === blockId)) throw new Error('所选时间块不是可简化的训练');
   const first = (blockId ? training.find(block => block.id === blockId) : undefined) || training.find(block => block.kind === 'sequence') || training[0], start = minutesOf(first.start);
-  if (minutesOf(first.end) - start < 15 || start + 15 > 1439) throw new Error('原训练时间不足十五分钟，请先调整计划');
+  if (endMinutesOf(first.end) - start < 15 || start + 15 > 1440) throw new Error('原训练时间不足十五分钟，请先调整计划');
   const steps: Action[] = [
     { id: 'emergency-warmup', title: '轻柔活动与热身', start: hhmm(start), end: hhmm(start + 3), dosage: '三分钟，自主调整', description: '仅选择自己已确认适合的轻柔活动。', safety: '不适时随时停止，并咨询专业人员。' },
     { id: 'emergency-move', title: '自选舒适活动', start: hhmm(start + 3), end: hhmm(start + 12), dosage: '九分钟，可提前结束', description: '可以选择熟悉的舒适活动，也可以休息；没有必须完成的动作。', safety: '不追求强度或进阶，不适立即停止。' },
@@ -415,14 +471,14 @@ export function scheduleDeferredTarget(sourceDate: string, targetId: string, tar
     return { date: targetDate, targetId: action.id, start: action.start, end: action.end };
   }
   if (target.locked || recordedDates().includes(targetDate)) throw new Error('目标日期已有执行记录，不能自动修改，请手动安排其他日期');
-  const duration = minutesOf(source.end) - minutesOf(source.start);
+  const duration = endMinutesOf(source.end) - minutesOf(source.start);
   let start = minutesOf(source.start);
   for (const block of target.blocks) {
-    const left = minutesOf(block.start), right = minutesOf(block.end);
+    const left = minutesOf(block.start), right = endMinutesOf(block.end);
     if (start + duration <= left) break;
     if (start < right && start + duration > left) start = right;
   }
-  if (start + duration > 1439) throw new Error('目标日没有足够空档，请手动调整计划');
+  if (start + duration > 1440) throw new Error('目标日没有足够空档，请手动调整计划');
   const action: Action = { id: id + '-step', title: source.title, start: hhmm(start), end: hhmm(start + duration) };
   ['dosage','description','equipment','searchKeyword','safety'].forEach(field => { if ((source as any)[field]) (action as any)[field] = (source as any)[field]; });
   const block: TimeBlock = { id, title: '延期安排：' + source.title, start: action.start, end: action.end, kind: 'parallel', category: sourceBlock.category, tasks: [{ id: id + '-task', title: source.title, start: action.start, end: action.end, actions: [action], origin: { date: sourceDate, targetId } }] };

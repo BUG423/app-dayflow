@@ -1,5 +1,5 @@
 import { PlanTemplate, Schedule, TimeBlock } from '../types/domain';
-import { minutesOf, parseLocalDate } from './calendar';
+import { minutesOf, endMinutesOf, parseLocalDate } from './calendar';
 import { BlockOccurrence, blocksOnDate, occurrencesOnDate, representativeDates } from './schedule-occurrences';
 
 export interface TimeWindow { start: string; end: string; }
@@ -20,9 +20,9 @@ export interface AvailabilityResult {
 }
 export interface AvailabilityOptions { date?: string; exceptionDate?: string; notBefore?: string; excludedDates?: string[]; }
 export interface ConflictOptions { notBefore?: string; excludedDates?: string[]; }
-const DAY_END = 1439; // The existing plan model accepts 00:00 through 23:59.
+const DAY_END = 1440; // 24:00 closes this local date; it is never a start candidate.
 const hhmm = (minute: number) => String(Math.floor(minute / 60)).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0');
-const overlap = (a: TimeBlock, b: TimeBlock) => minutesOf(a.start) < minutesOf(b.end) && minutesOf(b.start) < minutesOf(a.end);
+const overlap = (a: TimeBlock, b: TimeBlock) => minutesOf(a.start) < endMinutesOf(b.end) && minutesOf(b.start) < endMinutesOf(a.end);
 
 function candidate(template: PlanTemplate, draft: Schedule): PlanTemplate {
   return { ...template, schedules: template.schedules.filter(item => item.id !== draft.id).concat(draft) };
@@ -67,7 +67,7 @@ export function findScheduleConflicts(template: PlanTemplate, draft: Schedule, o
 }
 
 function freeFromBusy(busy: BusyPeriod[]): TimeWindow[] {
-  const ranges = busy.map(item => ({ left: minutesOf(item.start), right: minutesOf(item.end) })).sort((a, b) => a.left - b.left || a.right - b.right);
+  const ranges = busy.map(item => ({ left: minutesOf(item.start), right: endMinutesOf(item.end) })).sort((a, b) => a.left - b.left || a.right - b.right);
   const free: TimeWindow[] = []; let cursor = 0;
   ranges.forEach(range => { if (range.left > cursor) free.push({ start: hhmm(cursor), end: hhmm(range.left) }); cursor = Math.max(cursor, range.right); });
   if (cursor < DAY_END) free.push({ start: hhmm(cursor), end: hhmm(DAY_END) });
@@ -76,9 +76,9 @@ function freeFromBusy(busy: BusyPeriod[]): TimeWindow[] {
 export function allowedEndMinutes(availability: Pick<AvailabilityResult, 'freeWindows'>, start: string | number): number[] {
   const minute = typeof start === 'number' ? start : minutesOf(start);
   if (!Number.isInteger(minute) || minute < 0 || minute >= DAY_END) return [];
-  const gap = availability.freeWindows.find(item => minute >= minutesOf(item.start) && minute < minutesOf(item.end));
+  const gap = availability.freeWindows.find(item => minute >= minutesOf(item.start) && minute < endMinutesOf(item.end));
   if (!gap) return [];
-  const end = minutesOf(gap.end), values: number[] = [];
+  const end = endMinutesOf(gap.end), values: number[] = [];
   for (let value = minute + 1; value <= end; value++) values.push(value);
   return values;
 }
@@ -129,11 +129,11 @@ export function getBlockAvailability(template: PlanTemplate, draft: Schedule, bl
   }
   busy.sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end) || a.date.localeCompare(b.date));
   const freeWindows = freeFromBusy(busy), allowedStartMinutes: number[] = [];
-  freeWindows.forEach(gap => { for (let minute = minutesOf(gap.start); minute < minutesOf(gap.end); minute++) allowedStartMinutes.push(minute); });
-  const start = minutesOf(selected.start), end = minutesOf(selected.end), duration = Math.max(1, end - start);
-  const containing = freeWindows.find(gap => start >= minutesOf(gap.start) && end <= minutesOf(gap.end) && start < end);
-  const suggestions = freeWindows.filter(gap => minutesOf(gap.end) - minutesOf(gap.start) >= duration);
-  const forward = suggestions.find(gap => Math.max(start, minutesOf(gap.start)) + duration <= minutesOf(gap.end));
+  freeWindows.forEach(gap => { for (let minute = minutesOf(gap.start); minute < endMinutesOf(gap.end); minute++) allowedStartMinutes.push(minute); });
+  const start = minutesOf(selected.start), end = endMinutesOf(selected.end), duration = Math.max(1, end - start);
+  const containing = freeWindows.find(gap => start >= minutesOf(gap.start) && end <= endMinutesOf(gap.end) && start < end);
+  const suggestions = freeWindows.filter(gap => endMinutesOf(gap.end) - minutesOf(gap.start) >= duration);
+  const forward = suggestions.find(gap => Math.max(start, minutesOf(gap.start)) + duration <= endMinutesOf(gap.end));
   const suggested = forward || suggestions[0];
   const suggestedMinute = suggested ? (forward ? Math.max(start, minutesOf(suggested.start)) : minutesOf(suggested.start)) : -1;
   const suggestedStart = suggestedMinute < 0 ? '' : hhmm(suggestedMinute), suggestedEnd = suggestedMinute < 0 ? '' : hhmm(suggestedMinute + duration);
