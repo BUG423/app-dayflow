@@ -32,6 +32,8 @@ Windows 模拟器流程见 [微信测试说明](docs/WECHAT_TESTING.md)，入口
 脚本需要普通 Windows PowerShell 与已授权的微信开发者工具，不能在受限沙箱运行。
 本次实际环境、错误与未验证项见 [M1 验证报告](docs/M1_VALIDATION.md)。
 
+同日复试已在微信开发者工具 2.02.2608080 完成核心模拟器回归：五页 WXML/WXSS 编译、29 条断言、今日及训练详情截图通过；控制台 `grep -i error` 结果为空，测试前记录已恢复并读回确认。Android/iOS 真机仍未验证。
+
 ## 工程目录
 
 - miniprogram/pages：今日、计划、训练详情、统计、我的

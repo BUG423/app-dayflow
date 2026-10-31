@@ -64,9 +64,13 @@ function Invoke-Ide([string]$Tool, [string[]]$ToolArguments = @(), [switch]$Proj
   if ($script:Token) { $arguments += @('--token', $script:Token) }
   # No command string, Invoke-Expression, transcript, or argument logging. The token
   # comes only from this process environment and is never written to artifacts.
-  $raw = (& $WechatIde @arguments 2>&1 | Out-String)
+  $outputLines = @(& $WechatIde @arguments 2>&1)
   $nativeExit = $LASTEXITCODE
-  $loggedRaw = $raw
+  # PowerShell represents redirected native stderr as ErrorRecord objects.
+  # Preserve diagnostics as evidence, but parse only the JSON stdout payload.
+  $raw = ($outputLines | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | Out-String)
+  $diagnostics = ($outputLines | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | Out-String)
+  $loggedRaw = $diagnostics + $raw
   if ($script:Token) { $loggedRaw = $loggedRaw.Replace($script:Token, '[REDACTED]') }
   $name = '{0:D3}-{1}' -f $script:Sequence, $Tool
   [IO.File]::WriteAllText((Join-Path $script:RunDirectory "$name.log"), $loggedRaw, [Text.UTF8Encoding]::new($false))
@@ -89,7 +93,10 @@ function Invoke-Ide([string]$Tool, [string[]]$ToolArguments = @(), [switch]$Proj
       $taskOutcome = Find-Object $reply 'status'
       if ($null -ne $taskOutcome -and $taskOutcome.status -in @('failed', 'cancelled', 'expired')) { return $taskOutcome }
     }
-    throw "$Tool failed; inspect $name.log (exit $nativeExit)."
+    $failure = [InvalidOperationException]::new("$Tool failed; inspect $name.log (exit $nativeExit).")
+    $failure.Data['ToolErrorType'] = $reply.errorType
+    $failure.Data['ToolMessage'] = $reply.message
+    throw $failure
   }
   $failed = Find-Object $reply.result 'success'
   if ($null -ne $failed -and $failed.success -eq $false) { throw "$Tool reported failure; inspect $name.log." }
@@ -108,10 +115,36 @@ function Get-Page([string]$Selector) {
 function Tap([string]$Selector) {
   $null = Invoke-Ide 'automation_element_action' @('--selector', $Selector, '--action', 'tap', '--wait-for-selector', $Selector) -ProjectTool
 }
-function Navigate([string]$Action, [string]$Url = '') {
+function Wait-Page([string]$Path) {
+  # A tap can return before navigateTo finishes. Reacquire the current page before
+  # binding a selector wait, otherwise the wait remains attached to the old page.
+  for ($attempt = 0; $attempt -lt 5; $attempt++) {
+    try {
+      $reply = Invoke-Ide 'automation_runtime_info' @('--action', 'currentPage') -ProjectTool
+    } catch {
+      # Recompilation temporarily disconnects the read-only automator bridge.
+      # Never retry clicks, writes, authorization, or unknown failures here.
+      if ($_.Exception.Data['ToolErrorType'] -eq 'MCP_TOOL_ERROR' -and
+          $_.Exception.Data['ToolMessage'] -eq 'timeout waiting for automator response') { continue }
+      throw
+    }
+    $runtime = Find-Object $reply 'currentPage'
+    if ($null -eq $runtime) { throw 'Unrecognised currentPage response.' }
+    if ($null -eq $runtime.currentPage) { continue }
+    if (-not $runtime.currentPage.path) { throw 'Unrecognised currentPage response.' }
+    if ($runtime.currentPage.path.TrimStart('/') -eq $Path.TrimStart('/')) {
+      Assert-That $true ("Page stack is ready: " + $Path)
+      return
+    }
+  }
+  throw "Page stack did not reach $Path after five observations."
+}
+function Navigate([string]$Action, [string]$Url = '', [string]$ExpectedPage = '') {
   $nav = @('--action', $Action)
   if ($Url) { $nav += @('--url', $Url) }
   $null = Invoke-Ide 'automation_navigate' $nav -ProjectTool
+  if (-not $ExpectedPage -and $Url) { $ExpectedPage = $Url.Split('?')[0] }
+  if ($ExpectedPage) { Wait-Page $ExpectedPage }
 }
 function Evaluate([string]$Source, $Arguments = @()) {
   $argFile = Join-Path $script:RunDirectory ('evaluate-args-' + [Guid]::NewGuid().ToString('N') + '.json')
@@ -198,6 +231,7 @@ try {
         $null = Invoke-Ide 'compile_wxss' @('--file-path', "$pagePath.wxss") -ProjectTool
       }
       $null = Invoke-Ide 'simulator_open_page' @('--page', 'pages/today/index') -ProjectTool
+      Wait-Page 'pages/today/index'
       $todayPage = Get-Page '.weekday'
       $null = Invoke-Ide 'simulator_screenshot' @('--path', (Join-Path $script:RunDirectory 'today.png'), '--optimize=false', '--wait-for-selector', '.weekday') -ProjectTool
       $today = $todayPage.selectedDate
@@ -240,6 +274,7 @@ try {
       Assert-That ((Record-State $page 'music-guitar') -ne $guitarBefore) 'Switching back retains the changed record'
       Tap ".block-header[data-id='training']"
       Tap ".detail-link[data-id='training']"
+      Wait-Page 'pages/training/index'
       $training = Get-Page '.exercise'
       $null = Invoke-Ide 'simulator_screenshot' @('--path', (Join-Path $script:RunDirectory 'training.png'), '--optimize=false', '--wait-for-selector', '.exercise') -ProjectTool
       Assert-That ($training.dateKey -eq $today -and @($training.actions).Count -gt 0) 'Training details match the selected date'
@@ -250,7 +285,7 @@ try {
       $trainingAfter = Get-Page '.exercise'
       $changed = @($trainingAfter.actions | Where-Object { $_.id -eq $actionId })
       Assert-That ($changed.Count -eq 1 -and [bool]$changed[0].done -ne $actionDone) 'Training action checkbox changes its state'
-      Navigate 'navigateBack'
+      Navigate 'navigateBack' '' 'pages/today/index'
       $returned = Get-Page '.weekday'
       Assert-That ((Record-State $returned $actionId) -ne $actionDone) 'Returning from training refreshes timeline completion'
       foreach ($tab in @(@{ route = 'plans'; key = 'days' }, @{ route = 'stats'; key = 'days' }, @{ route = 'profile'; key = 'version' })) {

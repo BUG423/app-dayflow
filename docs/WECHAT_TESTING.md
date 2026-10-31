@@ -1,10 +1,12 @@
 # M1 微信开发者工具验证
 
-此流程使用安装版 `wechatide-skill` 0.3.11 的新版 `wechatide.cmd`，不使用旧 `cli.bat`，不额外引入 `miniprogram-automator`。脚本尚未在真实微信开发者工具中执行；静态检查、Node 单元测试和 TypeScript 检查不能替代模拟器或 Android/iOS 真机验收。
+此流程使用安装版 `wechatide-skill` 0.3.11 的新版 `wechatide.cmd`，不使用旧 `cli.bat`，不额外引入 `miniprogram-automator`。脚本已在真实微信开发者工具中运行，最新结果见 [M1 验证报告](M1_VALIDATION.md)。Node 单元测试和 TypeScript 检查不能替代模拟器或 Android/iOS 真机验收。
 
 ## 运行条件
 
-必须从有桌面访问权限的普通 Windows PowerShell 7.3+ 会话运行，不能在 sandbox 中执行 `wechatide`。安装版技能根文件明确要求：**“禁止在沙箱 / sandbox 中运行 wechatide”**。当前受限 Codex 会话只编写和静态审查脚本，未调用 CLI。
+必须从有桌面访问权限的普通 Windows PowerShell 7.3+ 会话运行，不能在 sandbox 中执行 `wechatide`。安装版技能根文件明确要求：**“禁止在沙箱 / sandbox 中运行 wechatide”**。本次通过可访问本机的执行入口运行 PowerShell，未解除或绕过受限 shell 的沙箱。
+
+自动化调用进程必须继承有效的 `USERPROFILE`、`LOCALAPPDATA`、`PATH` 和 `PATHEXT`。缺少 `USERPROFILE` 会让 CLI 从错误目录读取端口；缺少 `PATHEXT` 会让 PowerShell 无法把 `.cmd` 识别为可执行命令。只修正调用进程环境，不修改系统环境、安全设置或凭证。
 
 1. 使用已安装并登录的微信开发者工具，允许 Codex 客户端访问。脚本不会修改服务端口、安全设置或 AppID。
 2. 默认路径为 `E:\Software\微信web开发者工具\wechatide.cmd`；其他路径通过 `-WechatIde` 指定。
@@ -23,7 +25,9 @@ pwsh -NoProfile -File .\scripts\wechat-smoke.ps1
 
 ## 检查内容与证据
 
-脚本先验证版本关系及登录状态，打开项目，逐页请求 WXML/WXSS 编译，再编译并打开今日页面。通过 `automation_page_action/getData` 读取页面数据，通过 `automation_element_action/tap` 点击真实 WXML 元素，失败返回非零退出码。CLI 输出不是 JSON、返回失败、数据结构不符合预期，均视为失败，不猜测为成功。
+脚本先验证版本关系及登录状态，打开项目，逐页请求 WXML/WXSS 编译，再编译并打开今日页面。通过 `automation_page_action/getData` 读取页面数据，通过 `automation_element_action/tap` 点击真实 WXML 元素，失败返回非零退出码。CLI 的 stderr 诊断保存在日志，只解析 stdout JSON；返回失败或未知数据结构时不猜测为成功。
+
+导航后先读取页面栈，确认目标路由后再绑定选择器等待。重新编译期间已知的只读桥接超时最多重查五次；点击、存储写入、授权及未知错误不自动重试，避免重复执行用户操作。
 
 实际断言包括：默认今天及七日导航、逐日切换、前后周日期、并行勾选互不影响、跨日期隔离、返回日期后状态保持、训练详情勾选及返回时间轴刷新、四个 Tab 可加载、返回今日后的记录保持。
 
@@ -63,4 +67,4 @@ pwsh -NoProfile -File .\scripts\wechat-smoke.ps1 -Mode Restore -RunDirectory 'D:
 
 ## 当前验收状态
 
-本流程目前仅已实现，尚无 CLI、模拟器交互或真机执行日志。首次具备普通桌面 PowerShell 运行条件后，应按上述流程执行，把实际通过项、失败项和未验证项同步到 PR；不得把预期断言记为已通过。
+已有真实 CLI、编译及模拟器交互日志；完整断言结果与运行目录见 [M1 验证报告](M1_VALIDATION.md)。真机仍未验证。后续运行必须保留当次失败证据、记录恢复状态及控制台审查结果，不能仅凭退出码宣告发布通过。

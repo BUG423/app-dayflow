@@ -40,6 +40,9 @@ function Fake-Ide {
   $script:Calls++
   $script:LastArgs = @($args)
   $global:LASTEXITCODE = $script:FixtureExit
+  if ($script:FixtureDiagnostic) {
+    Write-Output ([Management.Automation.ErrorRecord]::new([Exception]::new($script:FixtureDiagnostic), 'NativeDiagnostic', [Management.Automation.ErrorCategory]::NotSpecified, $null))
+  }
   Write-Output $script:FixtureRaw
 }
 function Check([bool]$Value, [string]$Name) { if (-not $Value) { throw "Contract failed: $Name" } }
@@ -59,12 +62,15 @@ Save-Json @{ value = $script:Token } $redactedPath
 Check (-not (Get-Content -Raw $redactedPath).Contains($script:Token)) 'ordinary logs redact token'
 
 $script:FixtureRaw = '{"ok":true,"result":{"success":true,"data":{"selectedDate":"2026-10-31","blocks":[]},"diagnostic":"fixture-token-never-real"}}'
+$script:FixtureDiagnostic = '[wechatide] skill-call: fixture-token-never-real'
 $result = Invoke-Ide 'automation_page_action' @('--action', 'getData') -ProjectTool
 Check ((Find-Object $result 'selectedDate').selectedDate -eq '2026-10-31') 'nested page payload'
 Check ($result.diagnostic -eq $script:Token) 'parsed payload retains exact values before log redaction'
 Check ($script:LastArgs -contains '--token') 'CLI token supplied from environment-backed variable'
 $latestLog = Get-Content -Raw (Join-Path $TestDirectory '001-automation_page_action.log')
 Check (-not $latestLog.Contains($script:Token)) 'native output redacted before saving'
+Check ($latestLog.Contains('[wechatide] skill-call:')) 'stderr diagnostic retained without breaking JSON parsing'
+$script:FixtureDiagnostic = $null
 
 $script:FixtureExit = 1
 $script:FixtureRaw = '{"ok":false,"message":"fixture failure"}'
@@ -109,6 +115,23 @@ Check $script:State.restoreNeeded 'failed restore retains recovery requirement'
 
 $script:FixtureRaw = '{"ok":true,"result":{"unexpected":true}}'
 Must-Throw { Get-Page '.weekday' } 'unknown page payload fails'
+
+# Navigation waits must bind to the new page, never poll the old page forever.
+$script:FixtureRaw = '{"ok":true,"result":{"success":true,"currentPage":{"path":"pages/training/index"}}}'
+$beforeCalls = $script:Calls
+Wait-Page 'pages/training/index'
+Check ($script:Calls -eq $beforeCalls + 1) 'ready page stack observed once'
+$beforeCalls = $script:Calls
+Must-Throw { Wait-Page 'pages/today/index' } 'unready page stack fails'
+Check ($script:Calls -eq $beforeCalls + 5) 'page stack observation is bounded'
+$script:FixtureRaw = '{"ok":false,"errorType":"MCP_TOOL_ERROR","message":"timeout waiting for automator response"}'
+$beforeCalls = $script:Calls
+Must-Throw { Wait-Page 'pages/today/index' } 'bridge unavailable fails after bounded reads'
+Check ($script:Calls -eq $beforeCalls + 5) 'only known read-only bridge timeout is retried'
+$script:FixtureRaw = '{"ok":false,"errorType":"AUTH_DENIED","message":"denied"}'
+$beforeCalls = $script:Calls
+Must-Throw { Wait-Page 'pages/today/index' } 'authorization failure stops immediately'
+Check ($script:Calls -eq $beforeCalls + 1) 'authorization is never retried'
 Write-Output 'DAYFLOW_CONTRACT_OK'
 `;
     fs.writeFileSync(fixturePath, fixture, 'utf8');
