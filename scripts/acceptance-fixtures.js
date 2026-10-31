@@ -1,4 +1,5 @@
-const KNOWN_KEYS = ['dayflow.plans.v1','dayflow.planVersions.v1','dayflow.instances.v1','dayflow.records.v1','dayflow.records.v2','dayflow.review.v1','dayflow.preferences.v1','dayflow.remindersShown.v1','dayflow.timer.v1','dayflow.media.v1','dayflow.sync.v1','dayflow.sync.queue.v1','dayflow.sync.conflicts.v1','dayflow.sync.restoreBackup.v1','dayflow.sync.previousBinding.v1'];
+const KNOWN_KEYS = ['dayflow.plans.v1','dayflow.planVersions.v1','dayflow.instances.v1','dayflow.records.v1','dayflow.records.v2','dayflow.review.v1','dayflow.preferences.v1','dayflow.remindersShown.v1','dayflow.reminderJobs.v1','dayflow.timer.v1','dayflow.media.v1','dayflow.sync.v1','dayflow.sync.queue.v1','dayflow.sync.conflicts.v1','dayflow.sync.restoreBackup.v1','dayflow.sync.previousBinding.v1'];
+const PNG_BASE64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP40BTwHwAG6gLCvTItEQAAAABJRU5ErkJggg==';
 
 function backup(keys) {
   var present = wx.getStorageInfoSync().keys.filter(function(key) { return key.indexOf('dayflow.') === 0; });
@@ -46,5 +47,5 @@ function storageProbe() {
   try {wx.getStorageSync=function(){throw new Error('Synthetic read failure');};wx.setStorageSync=function(){writes++;};p.refresh();var shown=!!p.data.loadError;p.onToggleTask({currentTarget:{dataset:{id:'music-guitar'}}});return {dayflowSmoke:true,errorShown:shown,writes:writes};}
   finally {wx.getStorageSync=read;wx.setStorageSync=write;p.refresh();}
 }
-module.exports = {KNOWN_KEYS,backup,restore,seed,inspect,timeProbe,storageProbe};
-if (require.main === module) console.log(JSON.stringify({keys:KNOWN_KEYS,backup:backup.toString(),restore:restore.toString(),seed:seed.toString(),inspect:inspect.toString(),timeProbe:timeProbe.toString(),storageProbe:storageProbe.toString()}));
+module.exports = {KNOWN_KEYS,PNG_BASE64,backup,restore,seed,inspect,timeProbe,storageProbe};
+if (require.main === module) console.log(JSON.stringify({keys:KNOWN_KEYS,png:PNG_BASE64,backup:backup.toString(),restore:restore.toString(),seed:seed.toString(),inspect:inspect.toString(),timeProbe:timeProbe.toString(),storageProbe:storageProbe.toString()}));

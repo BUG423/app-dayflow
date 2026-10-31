@@ -2,12 +2,13 @@
 .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .header > view { min-width: 0; flex: 1; }
 .page-title { margin-bottom: 8px; }
-.today-jump { border: 1px solid #C9DDDA; border-radius: 12px; padding: 10px 14px; min-height: 44px; min-width: 56px; flex-shrink: 0; background: #FFFFFF; color: #286F67; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.today .today-jump { border: 1px solid #C9DDDA; border-radius: 12px; padding: 0; width: 56px; min-width: 56px; max-width: 56px; height: 44px; min-height: 44px; max-height: 44px; flex: 0 0 56px; margin: 0; box-sizing: border-box; background: #FFFFFF; color: #286F67; font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap; display: flex; align-items: center; justify-content: center; }
+.today .today-jump-label { font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap; }
 .calendar { padding: 10px 12px 12px; }
 .week-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
-.week-name { font-size: 15px; font-weight: 600; min-width: 0; }
-.week-arrows { display: flex; flex-shrink: 0; }
-.week-arrow { width: 44px; height: 44px; padding: 0; border-radius: 12px; background: transparent; text-align: center; color: #577372; font-size: 27px; display: flex; align-items: center; justify-content: center; }
+.week-name { font-size: 15px; font-weight: 600; min-width: 0; flex: 1; }
+.week-arrows { display: flex; width: 88px; min-width: 88px; max-width: 88px; flex: 0 0 88px; }
+.today button.week-arrow { width: 44px; min-width: 44px; max-width: 44px; height: 44px; min-height: 44px; flex: 0 0 44px; margin: 0; box-sizing: border-box; padding: 0; border-radius: 12px; background: transparent; text-align: center; color: #577372; font-size: 27px; display: flex; align-items: center; justify-content: center; }
 .weekday-row { display: flex; justify-content: space-between; }
 .weekday { flex: 1; min-width: 44px; min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; }
 .weekday.active { background: #28786E; color: #FFFFFF; }
@@ -61,5 +62,5 @@
   .block-card { padding-left: 10px; padding-right: 10px; }
 }
 .task-status { color: #56786F; font-size: 12px; margin-top: 4px; line-height: 1.6; }
-.task-menu { min-height: 44px; min-width: 44px; padding: 8px 4px; font-size: 12px; color: #286F67; background: #EDF4F0; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.today button.task-menu { width: 44px; min-width: 44px; max-width: 44px; min-height: 44px; flex: 0 0 44px; margin: 0; box-sizing: border-box; padding: 8px 4px; font-size: 12px; color: #286F67; background: #EDF4F0; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .front-reminder { border: 1px solid #D2E4DA; background: #EDF5EF; border-radius: 12px; padding: 12px 14px; margin-top: 12px; color: #3F6D5C; font-size: 14px; line-height: 1.7; }

@@ -55,6 +55,6 @@
 
   <view wx:if="{{feedbackText}}" class="feedback-message">{{feedbackText}}</view>
   <view class="section-heading">数据管理</view>
-  <view class="card control" bindtap="onClearRecords" aria-role="button" aria-label="清除本地打卡记录"><text>清除本地打卡记录</text><text class="arrow">›</text></view>
-  <view class="hint">清除前会再次确认，本机打卡状态清除后无法恢复。移除照片关联不会删除来源相册或云端照片。</view>
+  <view class="card control" bindtap="onClearRecords" aria-role="button" aria-label="重置当前执行记录"><text>重置当前执行记录</text><text class="arrow">›</text></view>
+  <view class="hint">不会移除计划、照片或同步副本；可从已保留副本恢复。移除照片关联不会删除来源相册或云端照片。</view>
 </view>

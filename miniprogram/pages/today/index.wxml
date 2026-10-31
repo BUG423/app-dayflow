@@ -4,15 +4,15 @@
       <view class="page-title">今日安排</view>
       <view class="subtle">按自己的节奏，做好眼前这一件。</view>
     </view>
-    <button class="today-jump" bindtap="onToday">今天</button>
+    <view class="today-jump" bindtap="onToday" aria-role="button" aria-label="回到今天"><text class="today-jump-label">今天</text></view>
   </view>
 
   <view class="calendar card">
     <view class="week-title">
       <text class="week-name">{{dayTitle}}</text>
       <view class="week-arrows">
-        <button class="week-arrow" data-delta="-1" bindtap="onShiftWeek" aria-label="上一周">‹</button>
-        <button class="week-arrow" data-delta="1" bindtap="onShiftWeek" aria-label="下一周">›</button>
+        <button class="week-arrow" size="mini" data-delta="-1" bindtap="onShiftWeek" aria-label="上一周">‹</button>
+        <button class="week-arrow" size="mini" data-delta="1" bindtap="onShiftWeek" aria-label="下一周">›</button>
       </view>
     </view>
     <view class="weekday-row">
@@ -65,7 +65,7 @@
               <view class="action-time">{{action.start}}–{{action.end}} <text wx:if="{{action.dosage}}">· {{action.dosage}}</text></view>
               <view class="task-status">{{action.statusText || '待开始'}}</view>
             </view>
-            <button class="task-menu" data-id="{{action.id}}" catchtap="onTaskMenu" aria-label="调整{{action.title}}的状态">状态</button>
+            <button class="task-menu" size="mini" data-id="{{action.id}}" catchtap="onTaskMenu" aria-label="调整{{action.title}}的状态">状态</button>
           </view>
           <view wx:if="{{block.kind === 'sequence'}}" class="detail-link" data-id="{{block.id}}" catchtap="onOpenTraining">查看动作说明与训练详情 →</view>
         </view>

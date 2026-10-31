@@ -53,7 +53,10 @@ function Restore-Apis {
   foreach ($method in @($script:State.mocked)) { $null = Invoke-Ide 'automation_wx_api' @('--action','restore','--method',$method) -ProjectTool }
   $script:State.mocked = @(); Save-State
 }
-function Screenshot([string]$Name,[string]$Selector) { $null=Invoke-Ide 'simulator_screenshot' @('--path',(Join-Path $script:RunDirectory ($Name+'.png')),'--optimize=false','--wait-for-selector',$Selector) -ProjectTool }
+function Screenshot([string]$Name,[string]$Selector) {
+  $null=Evaluate "function(selector){return new Promise(function(resolve){wx.pageScrollTo({selector:selector,duration:0,success:function(){resolve({dayflowSmoke:true,scrolled:true});},fail:function(){resolve({dayflowSmoke:true,scrolled:false});}});});}" @($Selector)
+  $null=Invoke-Ide 'simulator_screenshot' @('--path',(Join-Path $script:RunDirectory ($Name+'.png')),'--optimize=false','--wait-for-selector',$Selector) -ProjectTool
+}
 function Restore-All {
   $snapshot = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $script:RunDirectory 'all-dayflow-backup.json') | ConvertFrom-Json -AsHashtable
   $result = Evaluate ($sources.restore -replace '\r?\n',' ') @($snapshot)
@@ -147,25 +150,32 @@ try {
     Input-Element '.feedback-editor textarea' '合成验收反馈，不包含个人健康资料'
     Tap '.feedback-editor .button-primary'; $training=Get-Page '.exercise'
     Assert-That ($training.actions[0].feedback.note -eq '合成验收反馈，不包含个人健康资料') 'Feedback is saved on the chosen action'
-    $image=Evaluate "function(){var path=wx.env.USER_DATA_PATH+'/dayflow-qa-synthetic.png';wx.getFileSystemManager().writeFileSync(path,'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=','base64');return {dayflowSmoke:true,path:path};}"
-    Mock-Api 'requirePrivacyAuthorize' @{}
-    Mock-Api 'chooseMedia' @{tempFiles=@(@{tempFilePath=$image.path;size=68;fileType='image'});type='image'}
+    $photoSource="function(){var path=wx.env.USER_DATA_PATH+'/dayflow-qa-synthetic.png';wx.getFileSystemManager().writeFileSync(path,'__PNG__','base64');return new Promise(function(resolve){wx.compressImage({src:path,quality:80,success:function(r){resolve({dayflowSmoke:true,path:path,temp:r.tempFilePath,compressed:true});},fail:function(e){resolve({dayflowSmoke:true,path:path,compressed:false,error:e.errMsg});}});});}"
+    $image=Evaluate ($photoSource.Replace('__PNG__',$sources.png))
+    Assert-That ($image.compressed -and $image.temp -and $image.temp -ne $image.path) 'Native compression creates a genuine temporary synthetic image'
+    Mock-Api 'requirePrivacyAuthorize' @{errMsg='requirePrivacyAuthorize:ok'}
+    Mock-Api 'chooseMedia' @{errMsg='chooseMedia:ok';tempFiles=@(@{tempFilePath=$image.temp;size=68;fileType='image'});type='image'}
     Tap ".choose-photo[data-id='$first']"; $training=Get-Page '.record-photo'
     $photos=@($training.actions[0].photos)
-    Assert-That ($photos.Count -eq 1 -and $photos[0].localPath -ne $image.path) 'Synthetic photo is persistently saved through the native file API without using the user album'
+    Assert-That ($photos.Count -eq 1 -and $photos[0].localPath -ne $image.temp) 'Synthetic photo is persistently saved through the native file API without using the user album'
     Screenshot 'training-photo' '.record-photo'
     Tap ".remove-photo[data-photo-id='$($photos[0].id)']"; $training=Get-Page '.exercise'
     Assert-That (@($training.actions[0].photos).Count -eq 0) 'Photo association can be removed without changing completion'
-    $null=Evaluate "function(saved,source){return new Promise(function(resolve){var files=wx.getFileSystemManager();files.removeSavedFile({filePath:saved,success:function(){try{files.unlinkSync(source);}catch(e){}resolve({dayflowSmoke:true,cleaned:true});},fail:function(){try{files.unlinkSync(saved);files.unlinkSync(source);resolve({dayflowSmoke:true,cleaned:true});}catch(e){resolve({dayflowSmoke:true,cleaned:false});}}});});}" @($photos[0].localPath,$image.path)
+    $cleanup=Evaluate "function(saved,source){return new Promise(function(resolve){var files=wx.getFileSystemManager();files.removeSavedFile({filePath:saved,success:function(){try{files.unlinkSync(source);}catch(e){}resolve({dayflowSmoke:true,cleaned:true});},fail:function(){try{files.unlinkSync(saved);files.unlinkSync(source);resolve({dayflowSmoke:true,cleaned:true});}catch(e){resolve({dayflowSmoke:true,cleaned:false});}}});});}" @($photos[0].localPath,$image.path)
+    Assert-That ($cleanup.cleaned) 'Only the generated synthetic photo files are cleaned up'
     Tap ".select-timer[data-id='$second']"; Input-Element '.timer-panel input' '12'; Tap '.start-timer'; $training=Get-Page '.timer-panel'
     Assert-That ($training.timerState.status -eq 'running') 'Timer starts without completing the action'
     Tap '.timer-controls .button-secondary'; $training=Get-Page '.timer-panel'; Assert-That ($training.timerState.status -eq 'paused') 'Timer pauses'
-    Tap '.timer-controls .button-secondary'; Start-Sleep -Seconds 13; $training=Get-Page '.timer-panel'
+    $remaining=$training.timerState.remainingSeconds; Tap '.close-timer'; Navigate 'navigateBack' '' 'pages/today/index'
+    Tap ".detail-link[data-id='training']"; Wait-Page 'pages/training/index'; $training=Get-Page '.exercise'
+    Assert-That ($training.timerState.status -eq 'paused' -and $training.timerState.remainingSeconds -eq $remaining) 'Timer survives page hide and recreation without losing paused time'
+    Tap '.active-timer'; Tap '.timer-controls .button-secondary'; Start-Sleep -Seconds 13; $training=Get-Page '.timer-panel'
     Assert-That ($training.timerState.status -eq 'finished' -and @($training.actions|Where-Object {$_.id -eq $second})[0].status -eq 'aborted') 'Timer resumes and expires without completing a task'
+    Tap '.timer-controls .button-secondary'; $training=Get-Page '.timer-panel'; Assert-That ($training.timerState.status -eq 'paused' -and $training.timerState.remainingSeconds -eq 12) 'Timer reset restores the chosen duration and stays paused'
     Screenshot 'training-timer' '.timer-panel'; Tap '.close-timer'
     Navigate 'navigateBack' '' 'pages/today/index'; $p=Get-Page '.weekday'; Assert-That (@($p.blocks|Where-Object {$_.id -eq 'training'})[0].doneCount -eq 1) 'Returning from training refreshes timeline'
     $beforeInvalid=Evaluate ($sources.inspect -replace '\r?\n',' ')
-    Navigate 'navigateTo' '/pages/training/index?date=2026-02-30&blockId=training'; $invalid=Get-Page ''
+    Navigate 'navigateTo' '/pages/training/index?date=2026-02-30'; $invalid=Get-Page ''
     Assert-That ($invalid.dateKey -eq '' -and @($invalid.actions).Count -eq 0) 'Invalid training calendar date has no executable actions'
     Navigate 'navigateBack' '' 'pages/today/index'; $afterInvalid=Evaluate ($sources.inspect -replace '\r?\n',' ')
     Assert-That ($beforeInvalid.dates -eq $afterInvalid.dates) 'Invalid route did not add an execution date'
@@ -211,6 +221,10 @@ try {
     $recoveryFailed=$false
     try { Restore-Apis } catch { $recoveryFailed=$true }
     try { Restore-All } catch { $recoveryFailed=$true }
+    if(-not $recoveryFailed){
+      try { Navigate 'switchTab' '/pages/today/index'; Tap '.today-jump'; $null=Invoke-Ide 'automation_viewport_action' @('--action','pageScrollTo','--scroll-top','0') -ProjectTool; $realPage=Get-Page '.weekday'; Assert-That ($realPage.selectedDate -eq (Get-Date).ToString('yyyy-MM-dd')) 'Interface returns to the real today using original storage'; Restore-All; $script:State.originalInterfaceRestored=$true }
+      catch { $recoveryFailed=$true }
+    }
     if($recoveryFailed){$script:State.restoreNeeded=$true;$exitCode=1;$script:State.outcome='restoration-required';Write-Warning 'Keep the backup and run Restore before any further testing.'}
   }
   $script:State.finished=(Get-Date).ToString('o'); Save-State

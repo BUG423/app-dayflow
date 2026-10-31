@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-const {KNOWN_KEYS,backup,restore,seed,timeProbe,storageProbe} = require('../scripts/acceptance-fixtures');
+const {KNOWN_KEYS,PNG_BASE64,backup,restore,seed,timeProbe,storageProbe} = require('../scripts/acceptance-fixtures');
 const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 function run(fn, store, args=[]) {
   const wx = {getStorageInfoSync:()=>({keys:[...store.keys()]}),getStorageSync:key=>clone(store.get(key)),setStorageSync:(key,value)=>store.set(key,clone(value)),removeStorageSync:key=>store.delete(key)};
@@ -12,12 +12,22 @@ test('验收备份恢复全部日程流key及存在性，不触碰其他应用ke
   const store = new Map(Object.entries(clone(original)));
   const snapshot=run(backup,store,[KNOWN_KEYS]);
   assert.equal(snapshot.keys['dayflow.timer.v1'].present,false);
+  assert.equal(snapshot.keys['dayflow.reminderJobs.v1'].present,false);
   assert.equal(snapshot.keys['dayflow.future-key.v9'].present,true);
   run(seed,store);
   store.set('dayflow.new-test-key.v1',{test:true}); store.set('dayflow.records.v2',{schemaVersion:2,byDate:{}});
   const result=run(restore,store,[snapshot]);
   assert.equal(result.equal,true);
   assert.deepEqual(Object.fromEntries(store),original);
+});
+test('验收PNG是完整一像素合成图，所有chunk CRC和解压扫描线有效',()=>{
+  const zlib=require('node:zlib'), bytes=Buffer.from(PNG_BASE64,'base64');
+  function crc32(data){let crc=0xffffffff;for(const byte of data){crc^=byte;for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return (crc^0xffffffff)>>>0;}
+  assert.equal(crc32(Buffer.from('123456789')),0xcbf43926);
+  assert.deepEqual([...bytes.subarray(0,8)],[137,80,78,71,13,10,26,10]);
+  let offset=8;const names=[];
+  while(offset<bytes.length){const size=bytes.readUInt32BE(offset),type=bytes.toString('ascii',offset+4,offset+8);names.push(type);const data=bytes.subarray(offset+8,offset+8+size);assert.equal(crc32(bytes.subarray(offset+4,offset+8+size)),bytes.readUInt32BE(offset+8+size),type+' CRC');if(type==='IHDR'){assert.equal(data.readUInt32BE(0),1);assert.equal(data.readUInt32BE(4),1);}if(type==='IDAT')assert.equal(zlib.inflateSync(data).length,5);offset+=size+12;}
+  assert.deepEqual(names,['IHDR','IDAT','IEND']);assert.equal(offset,bytes.length);
 });
 test('验收恢复读回不同值时拒绝宣称恢复成功',()=>{
   const store=new Map([['dayflow.records.v1',{original:true}]]);
