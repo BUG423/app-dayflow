@@ -36,7 +36,7 @@ test('阳光验收夹具经真实模板、记录及快照校验，新版与已�
     const payload = sunshinePayload(date, at, scenario), run = createRuntime(new Date(at));
     Object.entries(payload.values).forEach(([key, value]) => run.storage.set(key, clone(value)));
     const plans = run.load('miniprogram/services/plans.ts'), template = plans.getTemplate();
-    assert.equal(template.version, 3);
+    assert.equal(template.version, 4);
     assert.equal(template.name, '阳光节奏合成验收');
     plans.validateInstances(payload.values['dayflow.instances.v1']);
     run.load('miniprogram/utils/record-validation.ts').validateEnvelope(payload.values['dayflow.records.v2']);
@@ -57,7 +57,7 @@ test('阳光夹具可预览新版七日节奏且晨间睡眠占用05点、08点�
   const plans = run.load('miniprogram/services/plans.ts'), page = run.page('plans'); page.onShow();
   const before = JSON.stringify([...run.storage]); page.onPreviewExample();
   assert.equal(page.data.examplePreview, true); assert.equal(page.data.importPreview.ok, true);
-  assert.equal(page.data.importPreview.template.version, 3);
+  assert.equal(page.data.importPreview.template.version, 4);
   assert.equal(JSON.stringify([...run.storage]), before, 'preview never rewrites current plan, history or records');
   const block = { id: 'sunshine-candidate', title: '晨间安排', start: '05:00', end: '06:00', kind: 'fixed', category: '生活', tasks: [] };
   const draft = { id: 'sunshine-candidate-rule', title: '晨间安排', effectiveFrom: payload.wednesdayDate, effectiveTo: payload.wednesdayDate, weekdays: [3], exceptions: [], blocks: [block] };
@@ -125,7 +125,13 @@ test('合成自定义旧计划通过实际采用按钮取消与确认，白天�
     assert.equal(morning.start, '08:00'); assert.equal(morning.end, '12:00'); assert.equal(morning.title, '自定义白天工作');
     const training = blocks.filter(block => block.category === '训练'); assert.equal(training.length, 1);
     assert.deepEqual([training[0].start, training[0].end], swim ? ['17:30','19:00'] : ['20:30','22:00']);
-    assert.equal(blocks.some(block => block.category === '加班'), !swim);
+    const overtime = blocks.filter(block => block.category === '加班');
+    assert.equal(overtime.length, 1);
+    assert.deepEqual([overtime[0].start, overtime[0].end], swim ? ['19:30','21:30'] : ['17:00','20:00']);
+    if (swim) {
+      assert.ok(blocks.some(block => block.title === '游泳后返回工作地点' && block.start === '19:00' && block.end === '19:30'));
+      assert.ok(blocks.some(block => block.title === '加班后回家' && block.start === '21:30' && block.end === '22:00'));
+    }
   }
   assert.equal(JSON.stringify(run.storage.get('dayflow.records.v2')), oldRecords);
   assert.equal(JSON.stringify(run.storage.get('dayflow.instances.v1')[date]), oldToday);

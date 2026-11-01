@@ -34,7 +34,7 @@ test('晨睡与7至12白天安排重叠时列出完整旧时段，预览零写�
   const afterPreview=snap(runtime);modal.success({confirm:false});assert.deepEqual(snap(runtime),afterPreview);
 });
 
-test('仅更新晨睡和晚间，保已改8至12白天与私人兴趣，泳日非重叠旧加班也移除',()=>{
+test('仅更新晨睡和晚间，保已改8至12白天与私人兴趣，泳日旧加班替换为游泳后加班',()=>{
   const {runtime,plans,template}=setup(),before=snap(runtime),preview=plans.previewEveningRoutineUpdate(4);
   assert.equal(preview.ok,true,preview.errors.join(';'));assert.equal(preview.routines.length,7);
   assert.deepEqual(snap(runtime),before);assert.deepEqual(clone(plans.previewEveningRoutineUpdate(4)),clone(preview));
@@ -47,7 +47,8 @@ test('仅更新晨睡和晚间，保已改8至12白天与私人兴趣，泳日�
     const reading=blocks.find(block=>block.id==='reading');assert.equal(reading.actions[0].description,'自己的内容保留');
     const training=blocks.filter(block=>block.category==='训练');assert.equal(training.length,1);
     assert.deepEqual([training[0].start,training[0].end],swimming?['17:30','19:00']:['20:30','22:00']);
-    assert.equal(blocks.filter(block=>block.category==='加班').length,swimming?0:1);
+    const overtime=blocks.filter(block=>block.category==='加班');assert.equal(overtime.length,1);
+    assert.deepEqual([overtime[0].start,overtime[0].end],swimming?['19:30','21:30']:['17:00','20:00']);
     assert.ok(blocks.some(block=>block.start==='00:00'&&block.end==='08:00'&&block.kind==='fixed'));
     assert.ok(blocks.some(block=>block.start==='23:00'&&block.end==='24:00'&&block.kind==='fixed'));
   }

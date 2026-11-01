@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { createRuntime, clone } = require('./helpers/miniprogram');
 const { shiftDays, minutesOf, endMinutesOf } = require('../miniprogram/utils/calendar');
 
-test('新示例二四六直接游泳，其余先加班回家，90分钟运动与一小时睡前准备互不重叠', () => {
+test('新版二四六先游泳再回去加班，其余先加班回家，90分钟运动与一小时睡前准备互不重叠', () => {
   const runtime = createRuntime(), { getBlocksForDate } = runtime.load('miniprogram/data/template.ts');
   const progress = runtime.load('miniprogram/utils/progress');
   for (let day = 0; day < 7; day++) {
@@ -14,9 +14,11 @@ test('新示例二四六直接游泳，其余先加班回家，90分钟运动与
     assert.equal(training.end, swimming ? '19:00' : '22:00');
     assert.equal(endMinutesOf(training.end) - minutesOf(training.start), 90);
     if (swimming) {
-      assert.equal(overtime, undefined);
+      assert.deepEqual([overtime.start,overtime.end], ['19:30','21:30']);
       assert.equal(blocks.find(b => b.id === 'swim-commute').start, '17:00');
       assert.equal(blocks.find(b => b.id === 'swim-commute').end, training.start);
+      assert.deepEqual([blocks.find(b=>b.id==='swim-return-work').start,blocks.find(b=>b.id==='swim-return-work').end],['19:00','19:30']);
+      assert.deepEqual([blocks.find(b=>b.id==='commute-home').start,blocks.find(b=>b.id==='commute-home').end],['21:30','22:00']);
     } else {
       assert.deepEqual([overtime.start,overtime.end], ['17:00','20:00']);
       assert.deepEqual([blocks.find(b => b.id === 'commute-home').start,blocks.find(b => b.id === 'commute-home').end], ['20:00','20:30']);
@@ -64,6 +66,43 @@ test('90分钟预留保留全部旧动作剂量和时长，仅平移并增自主
   }
 });
 
+test('显式v3示例仍可复现此前泳日无加班版本，默认v4只补泳后返回与加班', () => {
+  const runtime=createRuntime(),plans=runtime.load('miniprogram/services/plans');
+  const {getBlocksForDate}=runtime.load('miniprogram/data/template');
+  const old=JSON.parse(plans.exportDefaultTemplate(3)),current=JSON.parse(plans.exportDefaultTemplate());
+  assert.equal(old.version,3);assert.equal(current.version,4);
+  const before=clone([...runtime.storage]);
+  for(let day=0;day<7;day++){
+    const date=shiftDays('2026-11-01',day),v3=clone(getBlocksForDate(date,3)),v4=clone(getBlocksForDate(date));
+    if([2,4,6].includes(day)){
+      assert.equal(v3.some(block=>block.category==='加班'),false);
+      assert.deepEqual(v4.filter(block=>!['swim-return-work','overtime','commute-home'].includes(block.id)),v3);
+      assert.equal(old.schedules.find(rule=>rule.weekdays[0]===day).blocks.some(block=>block.id==='overtime'),false);
+      assert.equal(current.schedules.find(rule=>rule.weekdays[0]===day).blocks.filter(block=>block.id==='overtime').length,1);
+    }else assert.deepEqual(v4,v3);
+  }
+  assert.deepEqual(clone([...runtime.storage]),before);
+});
+
+test('已保存v3不静默升级，缺快照的旧v3执行先冻结，显式更新只改变未来作息',()=>{
+  const runtime=createRuntime(),plans=runtime.load('miniprogram/services/plans');
+  const old=JSON.parse(plans.exportDefaultTemplate(3));runtime.storage.set('dayflow.plans.v1',old);
+  const date='2026-10-29',record={date,targetId:'d4-step-0',taskId:'training-task',actionId:'d4-step-0',status:'done',updatedAt:1,events:[]};
+  runtime.storage.set('dayflow.records.v2',{schemaVersion:2,byDate:{[date]:{[record.targetId]:record}}});
+  const before=clone([...runtime.storage]);
+  assert.deepEqual(clone(plans.getTemplate()),old);
+  const preview=plans.previewEveningRoutineUpdate(3);assert.equal(preview.ok,true,preview.errors.join(';'));
+  assert.deepEqual(clone([...runtime.storage]),before);
+  const saved=plans.saveEveningRoutineUpdate(3,preview.lease);assert.equal(saved.version,4);
+  const history=plans.getDailyInstance(date);
+  assert.equal(history.templateVersion,3);assert.equal(history.locked,true);
+  assert.equal(history.blocks.some(block=>block.category==='加班'),false);
+  assert.deepEqual(clone(runtime.storage.get('dayflow.records.v2')),before.find(([key])=>key==='dayflow.records.v2')[1]);
+  const upcoming=plans.getDayBlocks('2026-11-03');
+  assert.deepEqual([upcoming.find(block=>block.title==='加班').start,upcoming.find(block=>block.title==='加班').end],['19:30','21:30']);
+  assert.ok(plans.getTemplateVersions().some(template=>template.version===3&&JSON.stringify(template)===JSON.stringify(old)));
+});
+
 test('v1和v2旧快照与无快照旧记录不会被新示例改写，未执行v2缓存才更新', () => {
   const runtime=createRuntime(),plans=runtime.load('miniprogram/services/plans');
   const snapshot=(version,date,locked)=>{
@@ -79,14 +118,14 @@ test('v1和v2旧快照与无快照旧记录不会被新示例改写，未执行v
   assert.equal(missing.templateVersion,1);assert.equal(missing.locked,true);
   assert.equal(missing.blocks.find(b=>b.id==='training').start,'17:30');
   assert.equal(missing.blocks.some(b=>b.id==='sleep-morning'),false);
-  const updated=plans.getDailyInstance(cache.date);assert.equal(updated.templateVersion,3);
+  const updated=plans.getDailyInstance(cache.date);assert.equal(updated.templateVersion,4);
   assert.equal(updated.blocks.find(b=>b.id==='training').end,'19:00');
-  assert.equal(updated.blocks.some(b=>b.id==='overtime'),false);
+  assert.deepEqual([updated.blocks.find(b=>b.id==='overtime').start,updated.blocks.find(b=>b.id==='overtime').end],['19:30','21:30']);
   const migrated=runtime.load('miniprogram/services/records').recordDetailsForDate('2026-11-04')['d3-step-0'];
   assert.equal(migrated.actionId,'d3-step-0');assert.equal(migrated.taskId,'training-task');
 });
 
-test('自定义计划只读保留，v3示例预览零写，显式采用后历史仍使用旧快照', () => {
+test('自定义计划只读保留，v4示例预览零写，显式采用后历史仍使用旧快照', () => {
   const runtime=createRuntime(),plans=runtime.load('miniprogram/services/plans');
   const custom=JSON.parse(plans.exportDefaultTemplate(2));custom.name='用户保存的安排';
   runtime.storage.set('dayflow.plans.v1',custom);
@@ -94,7 +133,7 @@ test('自定义计划只读保留，v3示例预览零写，显式采用后历史
   const before=clone([...runtime.storage]);
   assert.deepEqual(clone(plans.getTemplate()),custom);
   const preview=plans.previewImport(plans.exportDefaultTemplate());
-  assert.equal(preview.ok,true);assert.equal(preview.template.version,3);
+  assert.equal(preview.ok,true);assert.equal(preview.template.version,4);
   assert.deepEqual(clone([...runtime.storage]),before);
   plans.importTemplate(plans.exportDefaultTemplate(),2);
   const history=plans.getDailyInstance('2026-10-30');
@@ -114,7 +153,7 @@ test('旧加班日十五分钟简化与新加班冲突时保留原方案，主�
   assert.deepEqual(clone([...runtime.storage]),before);
   runtime.wx.setStorageSync=write;
   const standard=plans.setEmergencyPlan('2026-11-02',false);
-  assert.equal(standard.templateVersion,3);assert.equal(standard.mode,'standard');
+  assert.equal(standard.templateVersion,4);assert.equal(standard.mode,'standard');
   assert.deepEqual([standard.blocks.find(b=>b.id==='training').start,standard.blocks.find(b=>b.id==='training').end],['20:30','22:00']);
   assert.deepEqual([standard.blocks.find(b=>b.id==='overtime').start,standard.blocks.find(b=>b.id==='overtime').end],['17:00','20:00']);
 });

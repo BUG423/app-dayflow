@@ -1,9 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createRuntime, clone } = require('./helpers/miniprogram');
-const DEFAULT_VERSION = 3; // The revised built-in example has its own version.
+const DEFAULT_VERSION = 4; // The revised built-in example has its own version.
 
 function setup() { const runtime = createRuntime(); return { runtime, plans: runtime.load('miniprogram/services/plans.ts') }; }
+function reserveDeferredGap(runtime, plans) {
+  const template=clone(plans.getTemplate());
+  // Positive scheduling tests need an explicit free half-hour. The normal v4
+  // swimming evening is occupied continuously from 17:00 through midnight.
+  const target=template.schedules.find(schedule=>schedule.weekdays.includes(6));
+  target.blocks=target.blocks.filter(block=>block.id!=='swim-return-work');
+  runtime.storage.set('dayflow.plans.v1',template);
+}
 function simpleTemplate(plans, overrides = {}) {
   return { ...clone(plans.getTemplate()), name: '自定义计划', schedules: [{ id: 'custom', title: '自定义规则', weekdays: [0,1,2,3,4,5,6], effectiveFrom: '2026-01-01', exceptions: [], blocks: [{ id: 'custom-block', title: '自主练习', start: '18:30', end: '19:00', kind: 'parallel', category: '兴趣', tasks: [{ id: 'custom-task', title: '练习', start: '18:30', end: '19:00', actions: [] }] }] }], ...overrides };
 }
@@ -160,8 +168,11 @@ test('自主应急方案恰好十五分钟，未执行可恢复，锁定或有�
 test('延期只经用户调用安排，保留来源状态、另找空档且相同来源目标不会重复生成', () => {
   const { runtime, plans } = setup(); const source = modernRecord('2026-10-30', 'music-guitar', 'deferred', { deferredTo: '2026-10-31' });
   runtime.storage.set('dayflow.records.v2', envelope(source.date, source.targetId, source));
+  plans.getDailyInstance(source.date); // Keep the missing-snapshot historical v1 source before seeding the target fixture.
+  reserveDeferredGap(runtime,plans);
   const first = plans.scheduleDeferredTarget(source.date, source.targetId, source.deferredTo);
-  // Afternoon work begins at 13:00: the entire half-hour must move after it.
+  // The task cannot fit before 13:00 or during work/swimming, so it uses the
+  // explicitly reserved 19:00–19:30 test gap without moving occupied blocks.
   assert.equal(first.start, '19:00'); assert.equal(first.end, '19:30');
   const second = plans.scheduleDeferredTarget(source.date, source.targetId, source.deferredTo);
   assert.deepEqual(clone(second), clone(first));
@@ -173,11 +184,26 @@ test('延期训练保留训练分类，目标日锁定或无可用空档会明�
   const { runtime, plans } = setup();
   const source = modernRecord('2026-10-30', 'd5-step-1', 'deferred', { taskId: 'training-task', actionId: 'd5-step-1', deferredTo: '2026-10-31' });
   runtime.storage.set('dayflow.records.v2', envelope(source.date, source.targetId, source));
+  plans.getDailyInstance(source.date);
+  reserveDeferredGap(runtime,plans);
   const result = plans.scheduleDeferredTarget(source.date, source.targetId, source.deferredTo);
   const target = plans.getDayBlocks(result.date).find(block => block.actions.some(action => action.id === result.targetId));
   assert.equal(target.category, '训练');
   const other = setup(); other.runtime.storage.set('dayflow.records.v2', envelope(source.date, source.targetId, source)); other.plans.lockDailyInstance(source.deferredTo);
   assert.throws(() => other.plans.scheduleDeferredTarget(source.date, source.targetId, source.deferredTo), /已有执行记录/);
+});
+
+test('默认v4泳日连续晚间占用时不虚构延期空档，也不覆盖加班或改变来源记录',()=>{
+  const {runtime,plans}=setup();
+  const source=modernRecord('2026-10-30','music-guitar','deferred',{deferredTo:'2026-10-31'});
+  runtime.storage.set('dayflow.records.v2',envelope(source.date,source.targetId,source));
+  const before=clone(plans.getTemplate()),records=clone(runtime.storage.get('dayflow.records.v2'));
+  assert.throws(()=>plans.scheduleDeferredTarget(source.date,source.targetId,source.deferredTo),/没有足够空档/);
+  assert.deepEqual(clone(plans.getTemplate()),before);
+  assert.deepEqual(clone(runtime.storage.get('dayflow.records.v2')),records);
+  assert.equal(plans.getTemplate().schedules.some(schedule=>schedule.id.startsWith('deferred-')),false);
+  const target=plans.getDayBlocks(source.deferredTo);
+  assert.deepEqual([target.find(block=>block.id==='overtime').start,target.find(block=>block.id==='overtime').end],['19:30','21:30']);
 });
 
 test('纯快照校验不写入且拒绝损坏结构', () => {
