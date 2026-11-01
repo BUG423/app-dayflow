@@ -50,12 +50,19 @@ test('训练延期安排保留训练统计分类，未来整周不提前计入�
   const source = record('2026-10-30', 'd5-step-1', 'deferred', { taskId: 'training-task', actionId: 'd5-step-1', deferredTo: '2026-10-31' });
   runtime.storage.set('dayflow.records.v2', { schemaVersion: 2, byDate: { '2026-10-30': { 'd5-step-1': source } } });
   const plans = runtime.load('miniprogram/services/plans.ts'), records = runtime.load('miniprogram/services/records.ts');
+  plans.getDailyInstance(source.date); // Freeze the original v1 execution before assigning the edited target fixture.
+  // Reserve an explicit target gap for this positive deferred-statistics case;
+  // the standard v4 swimming evening intentionally has no spare half-hour.
+  const template=clone(plans.getTemplate());
+  const saturday=template.schedules.find(schedule=>schedule.weekdays.includes(6));
+  saturday.blocks=saturday.blocks.filter(block=>block.id!=='swim-return-work');
+  runtime.storage.set('dayflow.plans.v1',template);
   const placed = plans.scheduleDeferredTarget(source.date, source.targetId, source.deferredTo);
   records.setStatus(placed.date, placed.targetId, 'done');
   const insights = runtime.load('miniprogram/services/insights.ts');
   const summary = insights.getWeeklySummary('2026-10-31');
   // Only Friday has a historical execution fact and is frozen against v1.
-  // The other sample days follow the explicitly saved v3 template, while the
+  // The other sample days follow the explicitly saved v4 template, while the
   // current Saturday adds the separately deferred training action.
   assert.equal(summary.trainingCompleted, 1); assert.equal(summary.trainingTotal, 38);
   assert.deepEqual(clone(summary.days.map(day => day.trainingTotal)), [9,4,9,4,7,5]);

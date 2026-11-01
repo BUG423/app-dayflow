@@ -28,11 +28,11 @@ function validated(value: any): PlanTemplate {
   if (!result.ok) throw new Error(result.errors.join('；'));
   return result.template;
 }
-function defaultTemplate(version: 1 | 2 | 3 = 3): PlanTemplate {
+function defaultTemplate(version: 1 | 2 | 3 | 4 = 4): PlanTemplate {
   const schedules: Schedule[] = [];
   for (let weekday = 0; weekday < 7; weekday++) {
     const key = shiftDays('2026-11-01', weekday);
-    const blocks = (version === 3 ? getBlocksForDate(key) : getLegacyBlocksForDate(key, version)).map(block => {
+    const blocks = (version === 3 || version === 4 ? getBlocksForDate(key, version) : getLegacyBlocksForDate(key, version)).map(block => {
       const tasks: Task[] = block.kind === 'fixed' ? [] : block.kind === 'parallel'
         ? block.actions.map(action => ({ ...action, actions: [] }))
         : [{ id: 'training-task', title: block.title, start: block.start, end: block.end, actions: block.actions.map(action => ({ ...action })) }];
@@ -357,9 +357,9 @@ export function previewEveningRoutineUpdate(expectedVersion?: number): EveningRo
     const excludedDates = immutableDates(), stripped = removeFutureOvertime(current, date, excludedDates);
     let candidate = stripped.template;
     const removed = stripped.removed.slice(), routines: Schedule[] = [];
-    for (const example of defaultTemplate(3).schedules) {
+    for (const example of defaultTemplate(4).schedules) {
       const weekday = example.weekdays[0];
-      const draft: Schedule = { ...example, id: 'evening-v3-' + weekday + '-' + date.replace(/-/g, ''),
+      const draft: Schedule = { ...example, id: 'evening-v4-' + weekday + '-' + date.replace(/-/g, ''),
         title: ['周日','周一','周二','周三','周四','周五','周六'][weekday] + '晚间作息', effectiveFrom: date,
         blocks: example.blocks.filter(block => !['work-morning','music','work-afternoon'].includes(block.id)) };
       const identity = prepareScheduleIdentities(candidate, draft);
@@ -420,7 +420,7 @@ export function importTemplate(text: string, expectedVersion?: number): PlanTemp
 }
 export function exportTemplate(): string { return JSON.stringify(getTemplate(), null, 2); }
 /** Preview only: callers must use the ordinary validated import confirmation to apply it. */
-export function exportDefaultTemplate(version: 1 | 2 | 3 = 3): string { return JSON.stringify(defaultTemplate(version), null, 2); }
+export function exportDefaultTemplate(version: 1 | 2 | 3 | 4 = 4): string { return JSON.stringify(defaultTemplate(version), null, 2); }
 function hhmm(minute: number) { return String(Math.floor(minute / 60)).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0'); }
 export function setEmergencyPlan(date: string, enabled: boolean, blockId?: string): DailyInstance {
   assertDate(date);

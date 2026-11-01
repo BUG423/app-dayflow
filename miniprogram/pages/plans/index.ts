@@ -449,7 +449,7 @@ Page({
     const preview = this.eveningUpdate, version = this.data.eveningVersion;
     if (!preview?.ok || !preview.lease) return;
     wx.showModal({ title: '更新晚间作息？', confirmText: '确认更新', cancelText: '暂不更新',
-      content: '从' + preview.summary.from + '起更新睡眠、加班、运动与睡前准备。周二四六不加班，其余日先加班再训练。将移除预览中的' + preview.removed.length + '处完整旧时段；与新作息不冲突的白天安排和自定义事项保留，已执行记录也保留。',
+      content: '从' + preview.summary.from + '起更新晚间作息。周二、四、六先游泳，返回工作地点后加班；周一、三、五、日先加班，再回家锻炼。将移除预览中的' + preview.removed.length + '处完整旧时段；与新作息不冲突的白天安排和自定义事项保留，已执行记录也保留。',
       success: result => {
         if (!result.confirm) return;
         if (this.eveningUpdate?.lease !== preview.lease || !this.data.eveningPreview) { this.fail(new Error('预览内容已变化，请重新查看晚间作息后确认。')); return; }

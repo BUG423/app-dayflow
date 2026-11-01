@@ -23,12 +23,17 @@ function exerciseBlock(date: string, swimming: boolean): PlanBlock {
   return { ...original, start, end, actions };
 }
 
-/** Local-calendar v3 sample. Midnight sleep is represented by two exact daily fixed intervals. */
-export function getBlocksForDate(dateKey: string): PlanBlock[] {
+/** v3 remains reproducible; v4 adds work after swimming without changing recorded days. */
+export function getBlocksForDate(dateKey: string, version: 3 | 4 = 4): PlanBlock[] {
   const day = parseLocalDate(dateKey).getDay(), swimming = [2, 4, 6].includes(day);
   const daytime = getLegacyBlocksForDate(dateKey, 1).filter(block => !['training', 'sleep'].includes(block.id));
   const evening: PlanBlock[] = swimming
-    ? [{ id: 'swim-commute', title: '下班直接去游泳', start: '17:00', end: '17:30', kind: 'fixed', category: '生活', actions: [] }]
+    ? [{ id: 'swim-commute', title: '下班直接去游泳', start: '17:00', end: '17:30', kind: 'fixed', category: '生活', actions: [] },
+       ...(version === 4 ? [
+         { id: 'swim-return-work', title: '游泳后返回工作地点', start: '19:00', end: '19:30', kind: 'fixed' as const, category: '生活', actions: [] },
+         { id: 'overtime', title: '加班', start: '19:30', end: '21:30', kind: 'fixed' as const, category: '加班', actions: [] },
+         { id: 'commute-home', title: '加班后回家', start: '21:30', end: '22:00', kind: 'fixed' as const, category: '生活', actions: [] }
+       ] : [])]
     : [{ id: 'overtime', title: '加班', start: '17:00', end: '20:00', kind: 'fixed', category: '加班', actions: [] },
        { id: 'commute-home', title: '加班后回家', start: '20:00', end: '20:30', kind: 'fixed', category: '生活', actions: [] }];
   return [

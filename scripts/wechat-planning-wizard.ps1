@@ -6,7 +6,7 @@
 param(
   [string]$Project=(Split-Path $PSScriptRoot -Parent),
   [string]$WechatIde='E:\Software\微信web开发者工具\wechatide.cmd',
-  [ValidateSet('Validate','Layout','Sunshine','Restore','Poll')][string]$Mode='Validate',
+  [ValidateSet('Validate','Layout','Sunshine','SwimOvertime','Restore','Poll')][string]$Mode='Validate',
   [ValidateSet('default','narrow')][string]$Label='default',
   [string]$RunDirectory
 )
@@ -49,7 +49,7 @@ if($LASTEXITCODE -ne 0 -or $restoreSources.maxChunk -ne 8192){throw 'Restore tra
 $wizardSources=(& node (Join-Path $PSScriptRoot 'wizard-acceptance-fixtures.js') (Get-Date).ToString('yyyy-MM-dd')|Out-String)|ConvertFrom-Json -AsHashtable
 if($LASTEXITCODE -ne 0 -or $wizardSources.basic.values['dayflow.plans.v1'].schedules[0].title -ne '上午工作'){throw 'Fixture generation or UTF8 decoding failed before storage access.'}
 $sunSources=$null
-if($Mode -eq 'Sunshine'){
+if($Mode -in @('Sunshine','SwimOvertime')){
   $sunSources=(& node (Join-Path $PSScriptRoot 'sunshine-acceptance-fixtures.js') (Get-Date).ToString('yyyy-MM-dd')|Out-String)|ConvertFrom-Json -AsHashtable
   if($LASTEXITCODE -ne 0 -or $sunSources.sunshine.values['dayflow.plans.v1'].name -ne '阳光节奏合成验收'){throw 'Sunshine fixture generation or UTF8 decoding failed before storage access.'}
 }
@@ -333,16 +333,13 @@ function Sz-RepeatBoundary {
 function Sz-TemplatePreview {
   Sz-Seed 'sunshine';$before=Wz-Snapshot
   Tap '.plan-tools-toggle';Tap '.example-toggle';$p=Ux-Page '.example-schedules' 'exampleRows'
-  Assert-That ($p.examplePreview -and $p.importPreview.ok -and $p.importPreview.template.version -eq 3) 'The new example is validated and previewed as version three'
+  Assert-That ($p.examplePreview -and $p.importPreview.ok -and $p.importPreview.template.version -eq 4) 'The new example is validated and previewed as version four'
   foreach($weekday in 0..6){
     $rule=@($p.importPreview.template.schedules|Where-Object {$weekday -in $_.weekdays})[0];$blocks=$rule.blocks
-    $training=@($blocks|Where-Object {$_.id -eq 'training'})[0];$swim=$weekday -in @(2,4,6)
-    Assert-That ((@($blocks|Where-Object {$_.id -eq 'overtime'}).Count -eq 0) -eq $swim) ('Only swimming weekdays omit overtime: '+$weekday)
-    if(-not $swim){Assert-That (@($blocks|Where-Object {$_.id -eq 'overtime' -and $_.start -eq '17:00' -and $_.end -eq '20:00'}).Count -eq 1 -and @($blocks|Where-Object {$_.id -eq 'commute-home' -and $_.start -eq '20:00' -and $_.end -eq '20:30'}).Count -eq 1) ('Overtime precedes the return home and late training: '+$weekday)}
-    Assert-That (($swim -and $training.start -eq '17:30' -and $training.end -eq '19:00') -or (-not $swim -and $training.start -eq '20:30' -and $training.end -eq '22:00')) ('Training keeps its ninety-minute reserved window: '+$weekday)
-    Assert-That (@($blocks|Where-Object {$_.id -eq 'wind-down' -and $_.start -eq '22:00' -and $_.end -eq '23:00'}).Count -eq 1 -and @($blocks|Where-Object {$_.id -eq 'sleep-morning' -and $_.start -eq '00:00' -and $_.end -eq '08:00'}).Count -eq 1 -and @($blocks|Where-Object {$_.id -eq 'sleep' -and $_.start -eq '23:00' -and $_.end -eq '24:00'}).Count -eq 1) ('One-hour preparation and exact split overnight occupation remain visible: '+$weekday)
+    Sw-CheckBlocks $blocks $weekday 'Version-four preview'
   }
   Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Viewing the new example changes no saved plan or execution history'
+  if($Mode -eq 'SwimOvertime'){Ux-Shot 'swim-overtime-example-preview' '.example-schedules'}
 }
 function Sz-Page([string]$Name,[string]$Anchor,[string[]]$Controls){
   $boxes=Ux-Measure $Name (@($Anchor)+$Controls)
@@ -369,13 +366,38 @@ function Sz-EveningAdoption {
     Assert-That (@($blocks|Where-Object {$_.id -eq 'work-morning' -and $_.title -eq '自定义白天工作' -and $_.start -eq '08:00' -and $_.end -eq '12:00'}).Count -eq 1) ('Evening adoption preserves custom 08:00-12:00 daytime work: '+$date)
     $swim=$day -in @(2,4,6);$training=@($blocks|Where-Object {$_.category -eq '训练'})
     Assert-That ($training.Count -eq 1 -and (($swim -and $training[0].start -eq '17:30' -and $training[0].end -eq '19:00') -or (-not $swim -and $training[0].start -eq '20:30' -and $training[0].end -eq '22:00'))) ('Evening adoption changes the future training window on '+$date)
-    Assert-That ((@($blocks|Where-Object {$_.category -eq '加班'}).Count -eq 0) -eq $swim) ('Evening adoption omits overtime exactly on swimming days: '+$date)
+    Sw-CheckBlocks $blocks $day 'Saved evening update'
   }
   $oldInterest=@($old.schedules|Where-Object {$_.id -eq 'sunshine-custom-interest'})[0];$newInterest=@($saved.schedules|Where-Object {$_.id -eq 'sunshine-custom-interest'})[0]
   Assert-That ((ConvertTo-Json $oldInterest -Depth 70 -Compress) -eq (ConvertTo-Json $newInterest -Depth 70 -Compress)) 'A separate personal-interest example and all its identities remain unchanged'
   $lockedAfter=Evaluate "function(date){return {dayflowSmoke:true,value:JSON.stringify(wx.getStorageSync('dayflow.instances.v1')[date])};}" @($sunSources.custom.date)
   Assert-That ($lockedAfter.value -eq $lockedBefore.value) 'The current completed day keeps its original locked snapshot'
   Wz-Equal $before $after @('records','history') 'Evening adoption preserves completed facts and historical snapshots'
+}
+function Sw-Minute([string]$Clock){$parts=$Clock.Split(':');return [int]$parts[0]*60+[int]$parts[1]}
+function Sw-CheckBlocks($Blocks,[int]$Weekday,[string]$Context){
+  $swim=$Weekday -in @(2,4,6);$training=@($Blocks|Where-Object {$_.category -eq '训练'});$overtime=@($Blocks|Where-Object {$_.category -eq '加班'})
+  Assert-That ($training.Count -eq 1 -and $training[0].kind -eq 'sequence' -and ((Sw-Minute $training[0].end)-(Sw-Minute $training[0].start)) -eq 90) ($Context+' reserves ninety minutes for exercise: '+$Weekday)
+  Assert-That ($overtime.Count -eq 1 -and $overtime[0].kind -eq 'fixed' -and @($overtime[0].tasks|Where-Object {$_}).Count -eq 0 -and @($overtime[0].actions|Where-Object {$_}).Count -eq 0) ($Context+' keeps overtime fixed without task check-ins: '+$Weekday)
+  if($swim){
+    Assert-That ($training[0].start -eq '17:30' -and $training[0].end -eq '19:00' -and $overtime[0].start -eq '19:30' -and $overtime[0].end -eq '21:30') ($Context+' swims before returning to overtime: '+$Weekday)
+    Assert-That (@($Blocks|Where-Object {$_.kind -eq 'fixed' -and $_.title -eq '下班直接去游泳' -and $_.start -eq '17:00' -and $_.end -eq '17:30'}).Count -eq 1 -and @($Blocks|Where-Object {$_.kind -eq 'fixed' -and $_.title -eq '游泳后返回工作地点' -and $_.start -eq '19:00' -and $_.end -eq '19:30'}).Count -eq 1 -and @($Blocks|Where-Object {$_.kind -eq 'fixed' -and $_.title -eq '加班后回家' -and $_.start -eq '21:30' -and $_.end -eq '22:00'}).Count -eq 1) ($Context+' includes pool, workplace and home travel in order: '+$Weekday)
+  }else{
+    Assert-That ($overtime[0].start -eq '17:00' -and $overtime[0].end -eq '20:00' -and $training[0].start -eq '20:30' -and $training[0].end -eq '22:00' -and @($Blocks|Where-Object {$_.kind -eq 'fixed' -and $_.title -eq '加班后回家' -and $_.start -eq '20:00' -and $_.end -eq '20:30'}).Count -eq 1) ($Context+' works overtime before going home to train: '+$Weekday)
+  }
+  $sleep=@($Blocks|Where-Object {$_.kind -eq 'fixed' -and (($_.start -eq '00:00' -and $_.end -eq '08:00') -or ($_.start -eq '23:00' -and $_.end -eq '24:00'))})
+  Assert-That ($sleep.Count -eq 2 -and (($sleep|ForEach-Object {(Sw-Minute $_.end)-(Sw-Minute $_.start)}|Measure-Object -Sum).Sum -eq 540) -and @($Blocks|Where-Object {$_.kind -eq 'fixed' -and $_.start -eq '22:00' -and $_.end -eq '23:00'}).Count -eq 1) ($Context+' preserves nine hours of sleep and one hour to prepare: '+$Weekday)
+  $ordered=@($Blocks|Sort-Object start)
+  for($index=1;$index -lt $ordered.Count;$index++){Assert-That ((Sw-Minute $ordered[$index-1].end) -le (Sw-Minute $ordered[$index].start)) ($Context+' has no overlapping blocks: '+$Weekday+'/'+$index)}
+}
+function Sw-Timeline {
+  Sz-Seed 'sunshine';$before=Wz-Snapshot
+  $p=Ux-Go 'pages/today/index' '.today-jump' 'selectedDate'
+  $day=([datetime]::ParseExact($sunSources.sunshine.date,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture)).DayOfWeek.value__
+  Sw-CheckBlocks $p.blocks $day 'Rendered current-day version-four timeline'
+  $boxes=Ux-Measure 'swim-overtime-timeline' @('.today','.timeline','.timeline-row','.block-card','.block-title','.time-column')
+  Ux-Shot 'swim-overtime-today' '.today';Ux-Shot 'swim-overtime-evening' '.category-overtime'
+  Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Viewing the corrected timeline never changes saved execution facts'
 }
 function Sz-FivePages {
   Sz-Seed 'sunshine';$before=Wz-Snapshot
@@ -409,9 +431,11 @@ try{
     if($Mode -eq 'Restore'){Wz-RestoreInterface;$script:State.outcome='restored'}else{
       $snapshot=Evaluate ($sources.backup -replace '\r?\n',' ') @($sources.keys);Save-Json $snapshot (Join-Path $script:RunDirectory 'all-dayflow-backup.json') -PreserveValues
       $script:State.restoreNeeded=$true;Save-State;$manifest=Wz-Manifest;Save-Json $manifest (Join-Path $script:RunDirectory 'source-manifest.json')
-      $pages=if($Mode -eq 'Sunshine'){@('plans','today','training','stats','profile')}else{@('plans','today','training')}
+      $pages=if($Mode -in @('Sunshine','SwimOvertime')){@('plans','today','training','stats','profile')}else{@('plans','today','training')}
       foreach($page in $pages){foreach($suffix in @('wxml','wxss')){$null=Invoke-Ide ('compile_'+$suffix) @('--file-path',("pages/$page/index.$suffix")) -ProjectTool}}
-      if($Mode -eq 'Sunshine'){
+      if($Mode -eq 'SwimOvertime'){
+        Sz-TemplatePreview;Sz-EveningAdoption;Sw-Timeline
+      }elseif($Mode -eq 'Sunshine'){
         Sz-RepeatBoundary;Sz-TemplatePreview;Sz-EveningAdoption;Sz-FivePages
         if($Label -eq 'default'){Wz-Overwrite}
         Wz-Rest
@@ -427,7 +451,7 @@ try{
   }
 }catch{$exitCode=1;if(-not $script:Pending){$script:State.outcome='failed'};$message=$_.Exception.Message;if($script:Token){$message=$message.Replace($script:Token,'[REDACTED]')};$script:State.error=$message;Write-Warning $message}
 finally{
-  if($Mode -in @('Validate','Layout','Sunshine') -and $script:State.restoreNeeded -and -not $script:Pending){
+  if($Mode -in @('Validate','Layout','Sunshine','SwimOvertime') -and $script:State.restoreNeeded -and -not $script:Pending){
     try{Wz-RestoreInterface}catch{$exitCode=1;$script:State.outcome='restoration-required';$script:State.restoreNeeded=$true;$script:State.error=$_.Exception.Message;Write-Warning 'Keep the original backup and use Restore before another test.'}
   }
   $script:State.finished=(Get-Date).ToString('o');Save-State;Write-Host "Result: $($script:State.outcome). Evidence: $script:RunDirectory"

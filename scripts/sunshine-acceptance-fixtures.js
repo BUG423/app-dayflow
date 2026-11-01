@@ -9,7 +9,7 @@ function sunshinePayload(date, at, scenario = 'sunshine') {
   const run = createRuntime(new Date(at));
   const plans = run.load('miniprogram/services/plans.ts');
   const calendar = run.load('miniprogram/utils/calendar');
-  const template = scenario === 'custom' ? JSON.parse(plans.exportDefaultTemplate(2)) : clone(plans.getTemplate());
+  const template = scenario === 'custom' ? JSON.parse(plans.exportDefaultTemplate(3)) : clone(plans.getTemplate());
   template.id = 'sunshine-acceptance-template';
   template.name = '阳光节奏合成验收';
   template.updatedAt = at;

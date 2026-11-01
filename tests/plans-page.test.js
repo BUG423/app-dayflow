@@ -72,6 +72,12 @@ test('当日替换例外使用当前编辑内容，不同时覆盖基础规则',
 
 test('延期安排编辑保留来源关联，切换类型会明确拒绝，重新安排仍幂等', () => {
   const runtime = createRuntime(), plans = runtime.load('miniprogram/services/plans.ts'), records = runtime.load('miniprogram/services/records.ts');
+  // Explicitly reserve a half-hour in this editor fixture; the real default
+  // swimming evening keeps its return trip, overtime, and sleep occupation.
+  const template=clone(plans.getTemplate());
+  const saturday=template.schedules.find(schedule=>schedule.weekdays.includes(6));
+  saturday.blocks=saturday.blocks.filter(block=>block.id!=='swim-return-work');
+  runtime.storage.set('dayflow.plans.v1',template);
   records.setStatus('2026-10-30', 'music-guitar', 'deferred', { deferredTo: '2026-10-31' });
   const placed = plans.scheduleDeferredTarget('2026-10-30', 'music-guitar', '2026-10-31');
   const schedule = plans.getTemplate().schedules.find(s => s.blocks.some(b => b.tasks.some(t => t.origin)));
