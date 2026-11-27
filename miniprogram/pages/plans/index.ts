@@ -50,6 +50,7 @@ Page({
     importVisible: false, importText: '', importPreview: null as any, examplePreview: false, exampleRows: [] as any[],
     eveningPreview: false, eveningVersion: 0, eveningRemoved: [] as any[], eveningChangesExpanded: false,
     advancedVisible: false, toolsVisible: false, versionsVisible: false, trainingVisible: false,
+    scheduleActionsId: '', simpleWizardSteps: ['事项与时间', '重复并保存'],
     simpleMode: true, repeatModeIndex: 0, repeatOptions: ['不重复','每天','工作日','自选星期','每周这一天','非工作日'],
     repeatChoices: [] as Array<{ value: number; label: string }>,
     repeatWorkdayHint: '工作日为周一至周五，非工作日为周六、周日。',
@@ -214,6 +215,37 @@ Page({
     if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: '#schedule-editor', duration: 150 });
   },
   onWizardBack() { if (this.data.editorStep > 0) { this.setData({ editorStep: this.data.editorStep - 1, wizardError: '' }); this.refreshWizard(); } },
+  // The visible two-step flow reuses every validation and overwrite gate below.
+  onSimpleNext() {
+    if (!this.draftSchedule || this.data.saving || this.data.editorStep >= 2) return;
+    if (this.data.editorStep === 0) this.onWizardNext();
+    if (this.data.editorStep === 1) {
+      // A visited repeat screen must remain reachable to narrow an unapproved overwrite.
+      if (this.data.furthestStep >= 2) {
+        this.refreshWizard(); const message = this.wizardStepError(1);
+        if (message) this.setData({ wizardError: message });
+        else this.onWizardStep({ currentTarget: { dataset: { step: 2 } } });
+      } else this.onWizardNext();
+    }
+  },
+  onSimpleBack() {
+    if (this.data.editorStep < 2) return;
+    this.setData({ editorStep: 0, wizardError: '' }); this.refreshWizard();
+  },
+  onSimpleStep(e: any) {
+    const step = Number(e.currentTarget.dataset.step);
+    if (step === 0) { this.setData({ editorStep: 0, wizardError: '' }); this.refreshWizard(); }
+    else if (step === 1 && this.data.editorStep < 2) this.onSimpleNext();
+  },
+  onSimpleSave() {
+    if (!this.draftSchedule || this.data.saving || this.data.editorStep < 2) return;
+    if (this.data.editorStep === 2) {
+      const editingException = !!this.data.editingExceptionDate && !this.data.exceptionOnly;
+      this.onWizardNext();
+      if (editingException) return;
+    }
+    if (this.data.editorStep === 3) this.onSaveSchedule();
+  },
   onWizardStep(e: any) {
     const step = Number(e.currentTarget.dataset.step);
     if (!Number.isInteger(step) || step < 0 || step > 3 || step > this.data.furthestStep) return;
@@ -356,6 +388,7 @@ Page({
   onToggleTools() { this.setData({ toolsVisible: !this.data.toolsVisible }); },
   onToggleVersions() { this.setData({ versionsVisible: !this.data.versionsVisible }); },
   onToggleTraining() { this.setData({ trainingVisible: !this.data.trainingVisible }); },
+  onToggleScheduleActions(e: any) { const id = String(e.currentTarget.dataset.id); this.setData({ scheduleActionsId: this.data.scheduleActionsId === id ? '' : id }); },
   onKindChange(e: any) { const index = Number(e.detail.value), block = this.draftSchedule && this.editorBlocks()[this.data.editingBlockIndex]; if (block && kinds[index] !== block.kind && block.tasks.some(task => task.origin)) { this.fail(new Error('延期安排需保留来源关联，不能切换执行方式')); return; } if (index >= 0 && index < kinds.length) { this.setData({ kindIndex: index }); this.refreshWizard(); } },
   onToggleWeekday(e: any) { const value = Number(e.currentTarget.dataset.value); if (!weekdays.includes(value)) return; const selected = this.data.selectedWeekdays.includes(value) ? this.data.selectedWeekdays.filter(day => day !== value) : this.data.selectedWeekdays.concat(value); this.updateWeekdays(selected); this.refreshWizard(); },
   onAddAction() { this.setData({ actionRows: this.data.actionRows.concat({ id: newId('item'), title: '', start: this.data.start, end: this.data.end, dosage: '', description: '', equipment: '', searchKeyword: '', safety: '' }) }); this.refreshWizard(); },

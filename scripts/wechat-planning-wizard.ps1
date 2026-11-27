@@ -1,12 +1,15 @@
 #requires -Version 7.3
 <# Run in an ordinary Windows host after npm checks and source freeze.
    Picker selection uses documented component change/columnchange events;
-   it does not claim a human interaction with the native picker popup. #>
+   it does not claim a human interaction with the native picker popup.
+   Simplification targets the current two-step form and three-Tab navigation.
+   Validate/Layout/Sunshine/SwimOvertime retain historical flows pending migration;
+   their old results do not validate the simplified interface. #>
 [CmdletBinding()]
 param(
   [string]$Project=(Split-Path $PSScriptRoot -Parent),
   [string]$WechatIde='E:\Software\微信web开发者工具\wechatide.cmd',
-  [ValidateSet('Validate','Layout','Sunshine','SwimOvertime','Restore','Poll')][string]$Mode='Validate',
+  [ValidateSet('Simplification','Validate','Layout','Sunshine','SwimOvertime','Restore','Poll')][string]$Mode='Simplification',
   [ValidateSet('default','narrow')][string]$Label='default',
   [string]$RunDirectory
 )
@@ -135,11 +138,47 @@ function Wz-Time([string]$Which,[string]$Value){
   $p=Wz-Data;Assert-That ($p[$Which] -eq $Value) ('Component picker commits legal '+$Which+' '+$Value);return $p
 }
 function Wz-Layout([string]$Name,[string[]]$Controls){
-  $boxes=Ux-Measure $Name (@('#schedule-editor','.wizard-summary','.wizard-footer')+$Controls)
+  $boxes=Ux-Measure $Name (@('#schedule-editor','.wizard-steps','.wizard-footer')+$Controls)
   foreach($i in 3..($boxes.rects.Count-1)){foreach($r in @($boxes.rects[$i])){Assert-That ($r.width -ge 44 -and $r.height -ge 44) ('At least 44px control: '+$Controls[$i-3]);Assert-That ($r.bottom -le $boxes.height+1 -or $Controls[$i-3] -notin @('.wizard-next','.wizard-back','.save-schedule')) 'Fixed footer controls fit the actual window'}}
   Ux-Shot $Name '#schedule-editor'
 }
 function Wz-Basic {
+  Wz-Seed 'basic';$before=Wz-Snapshot
+  Tap '.create-schedule';Tap '.wizard-next';$p=Wz-Data
+  Assert-That ($p.editorStep -eq 0 -and $p.wizardError) 'The first visible step rejects an empty name without saving'
+  Ux-Input '.schedule-name' '验收合成的午间练习：整理本周事项并准备下一周'
+  $null=Wz-Time 'start' '12:00';$p=Wz-Time 'end' '12:30'
+  Assert-That ($p.editorStep -lt 2 -and -not $p.occupiedVisible) 'Name, date and time share the first screen with occupation details collapsed'
+  Wz-Layout 'simple-name-time' @('.schedule-name','.schedule-date-picker','.start-time-picker','.end-time-picker','.wizard-next')
+  Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Filling the first screen writes no saved data'
+  $p=Wz-Next 2
+  Assert-That ($p.repeatModeIndex -eq 0 -and (Wz-Count '.wizard-step') -eq 2 -and (Wz-Count '.save-schedule') -eq 1) 'The second of two visible steps offers repeat and final save'
+  Wz-Modal $false;Tap ".repeat-option[data-index='1']";$p=Wz-Data;Wz-RestoreApis
+  Assert-That ($p.overwriteRequired -and -not $p.overwriteConfirmed -and @($p.overwriteRows|Where-Object {$_.title -eq '两个月后会议' -and $_.start -eq '12:00' -and $_.end -eq '13:00'}).Count -gt 0) 'Cancelling future replacement keeps its exact affected arrangement visible and unapproved'
+  Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Cancelling replacement changes no plan or execution data'
+  Tap '.wizard-back';$p=Wz-Data
+  Assert-That ($p.editorStep -eq 0 -and $p.start -eq '12:00' -and $p.end -eq '12:30') 'Back retains the first-screen draft'
+  Tap ".wizard-step[data-step='1']";$p=Wz-Data
+  Assert-That ($p.editorStep -ge 2) 'An already reached repeat screen remains reachable to repair an unapproved repeat scope'
+  Tap ".repeat-option[data-index='0']";$p=Wz-Data
+  Assert-That (-not $p.overwriteRequired -and @($p.conflicts).Count -eq 0) 'Shrinking repeat repairs the draft without saving'
+  Wz-Layout 'simple-repeat-save' @('.repeat-option','.wizard-back','.save-schedule')
+  Wz-Equal $before (Wz-Snapshot) @('plan','versions','records','history') 'Only the final save may persist the two-screen draft'
+  Tap '.save-schedule';$p=Ux-Page '.create-schedule' 'editorVisible'
+  Assert-That (-not $p.editorVisible) 'One final save persists and closes the two-screen form'
+  $after=Wz-Snapshot;Assert-That ($after.plan -ne $before.plan) 'The final save changes the template'
+  Wz-Equal $before $after @('records','history') 'Saving preserves historical execution facts'
+  $null=Ux-Go 'pages/profile/index' '.section-records' 'expandedSection';Tap '.section-records'
+  $p=Wait-UxPage 'pages/stats/index' '.history-toggle' 'historyVisible'
+  Assert-That (-not $p.historyVisible) 'Records opens from My with historical details collapsed'
+  Tap '.history-toggle';$p=Ux-Page '.history-panel' 'historyVisible';Assert-That $p.historyVisible 'The history filter and retained records remain reachable'
+  $null=Invoke-Ide 'automation_navigate' @('--action','navigateBack') -ProjectTool
+  $null=Wait-UxPage 'pages/profile/index' '.section-records' 'expandedSection'
+  $null=Ux-Go 'pages/today/index' '.today-jump' 'selectedDate'
+  $null=Ux-Go 'pages/plans/index' '.create-schedule' 'schedules'
+  Wz-Equal $after (Wz-Snapshot) @('plan','versions','records','history') 'Three-Tab navigation and reading records do not change saved data'
+}
+function Wz-LegacyBasic {
   Wz-Seed 'basic';$before=Wz-Snapshot
   $null=Wz-New '验收合成的午间练习：整理本周事项并准备下一周';Wz-Layout 'name' @('.schedule-name','.wizard-next')
   $p=Wz-Next 1
@@ -431,16 +470,18 @@ try{
     if($Mode -eq 'Restore'){Wz-RestoreInterface;$script:State.outcome='restored'}else{
       $snapshot=Evaluate ($sources.backup -replace '\r?\n',' ') @($sources.keys);Save-Json $snapshot (Join-Path $script:RunDirectory 'all-dayflow-backup.json') -PreserveValues
       $script:State.restoreNeeded=$true;Save-State;$manifest=Wz-Manifest;Save-Json $manifest (Join-Path $script:RunDirectory 'source-manifest.json')
-      $pages=if($Mode -in @('Sunshine','SwimOvertime')){@('plans','today','training','stats','profile')}else{@('plans','today','training')}
+      $pages=if($Mode -in @('Simplification','Sunshine','SwimOvertime')){@('plans','today','training','stats','profile')}else{@('plans','today','training')}
       foreach($page in $pages){foreach($suffix in @('wxml','wxss')){$null=Invoke-Ide ('compile_'+$suffix) @('--file-path',("pages/$page/index.$suffix")) -ProjectTool}}
-      if($Mode -eq 'SwimOvertime'){
+      if($Mode -eq 'Simplification'){
+        Wz-Basic
+      }elseif($Mode -eq 'SwimOvertime'){
         Sz-TemplatePreview;Sz-EveningAdoption;Sw-Timeline
       }elseif($Mode -eq 'Sunshine'){
         Sz-RepeatBoundary;Sz-TemplatePreview;Sz-EveningAdoption;Sz-FivePages
         if($Label -eq 'default'){Wz-Overwrite}
         Wz-Rest
       }else{
-        Wz-Basic
+        Wz-LegacyBasic
         if($Mode -eq 'Validate'){Wz-Existing;Wz-RejectedFinalSave 'version';Wz-RejectedFinalSave 'locked';Wz-Identity;Wz-Overwrite;Wz-ExternalFull}
         Wz-NoGap;Wz-Rest
       }
@@ -451,7 +492,7 @@ try{
   }
 }catch{$exitCode=1;if(-not $script:Pending){$script:State.outcome='failed'};$message=$_.Exception.Message;if($script:Token){$message=$message.Replace($script:Token,'[REDACTED]')};$script:State.error=$message;Write-Warning $message}
 finally{
-  if($Mode -in @('Validate','Layout','Sunshine','SwimOvertime') -and $script:State.restoreNeeded -and -not $script:Pending){
+  if($Mode -in @('Simplification','Validate','Layout','Sunshine','SwimOvertime') -and $script:State.restoreNeeded -and -not $script:Pending){
     try{Wz-RestoreInterface}catch{$exitCode=1;$script:State.outcome='restoration-required';$script:State.restoreNeeded=$true;$script:State.error=$_.Exception.Message;Write-Warning 'Keep the original backup and use Restore before another test.'}
   }
   $script:State.finished=(Get-Date).ToString('o');Save-State;Write-Host "Result: $($script:State.outcome). Evidence: $script:RunDirectory"

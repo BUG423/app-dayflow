@@ -1,6 +1,5 @@
 <view class="page stats">
-  <view class="title-line"><view class="heading-mark stats-mark" aria-hidden="true"></view><view class="page-title">执行统计</view></view>
-  <view class="subtle">每一点行动，都值得被看见。</view>
+  <view class="title-line"><view class="heading-mark stats-mark" aria-hidden="true"></view><view class="page-title">记录</view></view>
   <view class="week-navigation card">
     <view class="week-label">{{weekLabel}}</view>
     <view class="week-controls">
@@ -11,27 +10,30 @@
   </view>
   <view wx:if="{{errorMessage}}" class="stats-error">{{errorMessage}}</view>
   <view class="overview card">
-    <view class="overview-label">本周完成率</view>
+    <view class="overview-label">本周完成</view>
     <view class="overview-number">{{percent}}<text class="percent-sign">%</text></view>
     <view class="subtle">已完成{{weeklyDone}} / {{weeklyTotal}}项</view>
     <view class="progress-track"><view class="progress-fill" style="width: {{percent}}%;"></view></view>
-    <view class="training-count"><text class="training-dot"></text>训练步骤 {{trainingCompleted}} / {{trainingTotal}}项</view>
     <view class="overview-footnote">统计截至今天，固定占用不参与打卡。</view>
   </view>
+
+  <view class="section-heading">本周每日执行</view>
+  <view wx:if="{{!days.length}}" class="card empty-state">这一周还没有可统计的日期。</view>
+  <view wx:for="{{days}}" wx:key="date" class="day card">
+    <view class="day-heading"><text class="day-date">{{item.label}} · {{item.date}}</text><text class="count">{{item.future ? '尚未到来' : item.completed + '/' + item.total}}</text></view>
+    <view wx:if="{{!item.future}}" class="day-progress"><view class="day-progress-fill" style="width: {{item.percent}}%;"></view></view>
+  </view>
+
+  <button class="button-secondary history-toggle" bindtap="onToggleHistory" aria-expanded="{{historyVisible}}">{{historyVisible ? '收起历史记录' : '查看历史记录'}}</button>
+  <view wx:if="{{historyVisible}}" class="history-panel">
+  <view class="section-heading">历史记录</view>
+  <view class="field-help">本周训练步骤 {{trainingCompleted}} / {{trainingTotal}}项</view>
   <view class="metric-grid">
     <view class="card metric"><view class="metric-number">{{streak}}<text>天</text></view><view class="metric-label">当前连续执行</view></view>
     <view class="card metric"><view class="metric-number">{{activeDays}}<text>天</text></view><view class="metric-label">区间执行天数</view></view>
   </view>
   <view class="field-help streak-help">每天完成至少一项即计入连续执行。区间天数按下方历史日期范围统计。</view>
 
-  <view class="section-heading">本周每日执行</view>
-  <view wx:if="{{!days.length}}" class="card empty-state">这一周还没有可统计的日期。</view>
-  <view wx:for="{{days}}" wx:key="date" class="day card">
-    <view class="day-heading"><text class="day-date">{{item.label}} · {{item.date}}</text><text class="count">{{item.completed}}/{{item.total}}</text></view>
-    <view class="day-progress"><view class="day-progress-fill" style="width: {{item.percent}}%;"></view></view>
-  </view>
-
-  <view class="section-heading">历史记录</view>
   <view class="card history-filter">
     <view class="form-grid">
       <view class="history-date"><label class="field-label">开始日期</label><picker mode="date" value="{{fromDate}}" bindchange="onHistoryFromChange"><view class="form-picker"><text class="picker-value">{{fromDate}}</text><view class="chevron" aria-hidden="true"></view></view></picker></view>
@@ -62,4 +64,5 @@
     </view>
   </view>
   <view class="tip">固定占用时间不计入完成率。历史记录保留当时的安排，未记录的任务不会自动记为完成。</view>
+  </view>
 </view>

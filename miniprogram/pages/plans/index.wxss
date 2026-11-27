@@ -89,7 +89,7 @@
 .date-selection-hint, .save-notice { margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--color-primary-soft); color: var(--color-primary); font-size: 13px; line-height: 1.7; overflow-wrap: break-word; }
 .save-notice { margin-bottom: 16px; }
 
-/* Related fields are grouped into four short pages; drafts stay visible in the summary. */
+/* Two visible steps share the existing validation flow. */
 .wizard-editor { padding-bottom: 104px; }
 .plans .editor-heading { align-items: center; }
 .plans button.close-editor { width: 80px; min-width: 80px; max-width: 80px; flex: 0 0 80px; color: var(--color-muted); font-size: 13px; }
@@ -232,4 +232,18 @@
 .plans .disclosure-label { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--color-muted); }
 .plans .advanced-toggle, .plans .occupied-toggle { gap: 12px; }
 @media (max-width: 360px) { .plans .repeat-mode { gap: 8px; } .plans button.repeat-option { padding: 12px 10px; font-size: 14px; } .plans .step-heading { font-size: 19px; } }
+
+.plans button.plan-tools-toggle, .plans button.schedule-actions-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; margin: 12px 0 0; padding: 10px 0; background: transparent; color: var(--color-muted); font-size: 14px; line-height: 1.6; text-align: left; white-space: normal; }
+.plans button.plan-tools-toggle { margin-top: 24px; border-top: 1px solid var(--color-border); }
+.plans button.wizard-step { min-height: 44px; flex-direction: row; align-items: center; gap: 8px; padding: 10px 8px; font-size: 14px; }
+.plans .step-name { min-height: 0; margin-top: 0; line-height: 1.6; }
+.plans .step-number { flex: 0 0 22px; }
+.plans .schedule-card .button-row { flex-wrap: wrap; }
+.plans .schedule-card .button-row button { flex: 1 1 100px; min-height: 44px; white-space: normal; }
+.plans .wizard-page .checkable-setting { margin-top: 14px; }
+.draft-overview { margin-top: 12px; color: var(--color-muted); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.draft-overview > view:first-child { color: var(--color-text); }
+.plans button.schedule-open { display: block; width: 100%; min-height: 44px; margin: 0; padding: 0; background: transparent; color: var(--color-text); text-align: left; white-space: normal; line-height: 1.6; }
+.schedule-times { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+@media (max-width: 360px) { .plans button.wizard-step { gap: 5px; padding: 10px 4px; font-size: 13px; } .plans .wizard-footer { flex-wrap: wrap; } .plans .wizard-footer button { flex: 1 1 100px; } }
 

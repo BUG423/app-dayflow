@@ -57,7 +57,7 @@
 @media (max-width: 360px) {
   .stats .week-navigation { padding: 12px 8px; }
   .week-controls { gap: 6px; }
-  .stats button.week-control, .stats button.current-week { padding-left: 2px; padding-right: 2px; font-size: 13px; }
+  .stats button.week-control, .stats button.current-week { padding-left: 2px; padding-right: 2px; }
   .metric-grid { gap: 8px; }
 }
 
@@ -78,4 +78,8 @@
 .stats .history-filter { background: #FFFCF5; }
 .stats .record-status { border-radius: 9px; }
 .stats .record-events-toggle { border-radius: 13px; }
+.stats .history-toggle { width: 100%; max-width: 100%; min-height: 48px; height: auto; margin: 20px 0 12px; padding: 12px; font-size: 14px; line-height: 1.7; white-space: normal; }
+.history-panel { margin-top: 12px; }
+.stats .history-date .form-picker { min-height: 44px; height: auto; line-height: 1.7; white-space: normal; }
+.stats .history-date .picker-value { min-width: 0; overflow-wrap: anywhere; }
 

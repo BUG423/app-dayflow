@@ -23,10 +23,10 @@ test('泳后加班验收夹具从旧v3自定义计划采用v4，历史来源保�
 test('专用模拟器模式的真实PowerShell顺序断言接受七天新作息并拒绝缺加班、反序、重叠和少睡', () => {
   const root = path.resolve(__dirname, '..'), entry = path.join(root, 'scripts/wechat-planning-wizard.ps1');
   const source = fs.readFileSync(entry, 'utf8');
-  assert.match(source, /ValidateSet\('Validate','Layout','Sunshine','SwimOvertime','Restore','Poll'\)/);
+  assert.match(source, /ValidateSet\('Simplification','Validate','Layout','Sunshine','SwimOvertime','Restore','Poll'\)/);
   assert.match(source, /if\(\$Mode -eq 'SwimOvertime'\)\{\s*Sz-TemplatePreview;Sz-EveningAdoption;Sw-Timeline/);
-  assert.match(source, /if\(\$Mode -in @\('Validate','Layout','Sunshine','SwimOvertime'\) -and \$script:State.restoreNeeded -and -not \$script:Pending\)/);
-  assert.match(source, /\$pages=if\(\$Mode -in @\('Sunshine','SwimOvertime'\)\)\{@\('plans','today','training','stats','profile'\)\}/);
+  assert.match(source, /if\(\$Mode -in @\('Simplification','Validate','Layout','Sunshine','SwimOvertime'\) -and \$script:State.restoreNeeded -and -not \$script:Pending\)/);
+  assert.match(source, /\$pages=if\(\$Mode -in @\('Simplification','Sunshine','SwimOvertime'\)\)\{@\('plans','today','training','stats','profile'\)\}/);
   const run = createRuntime(new Date(2026, 10, 1, 8)), plans = run.load('miniprogram/services/plans.ts');
   const days = Array.from({ length: 7 }, (_, index) => ({ weekday: (index + 1) % 7, blocks: clone(plans.getDayBlocks('2026-11-0' + (index + 2))) }));
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dayflow-swim-qa-'));

@@ -28,10 +28,6 @@
         "text": "计划"
       },
       {
-        "pagePath": "pages/stats/index",
-        "text": "统计"
-      },
-      {
         "pagePath": "pages/profile/index",
         "text": "我的"
       }

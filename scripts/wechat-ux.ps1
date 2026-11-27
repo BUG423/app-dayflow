@@ -65,7 +65,8 @@ function Wait-UxPage([string]$Path,[string]$Selector,[string]$Key){
   throw "Visible page $Path did not stabilize after bounded read-only observations; no click was replayed."
 }
 function Ux-Go([string]$Path,[string]$Selector,[string]$Key){
-  $null=Invoke-Ide 'automation_navigate' @('--action','switchTab','--url',('/'+$Path)) -ProjectTool
+  $action=if($Path.TrimStart('/') -eq 'pages/stats/index'){'navigateTo'}else{'switchTab'}
+  $null=Invoke-Ide 'automation_navigate' @('--action',$action,'--url',('/'+$Path.TrimStart('/'))) -ProjectTool
   return Wait-UxPage $Path $Selector $Key
 }
 function Ux-Input([string]$Selector,[string]$Value){$null=Invoke-Ide 'automation_element_action' @('--selector',$Selector,'--action','input','--value',$Value,'--wait-for-selector',$Selector) -ProjectTool}
@@ -166,6 +167,7 @@ function Ux-LockedDate{
 function Ux-Layout{
   $null=Ux-Go 'pages/today/index' '.today-jump' 'selectedDate';Tap '.today-jump'
   $stats=Ux-Go 'pages/stats/index' '.week-label' 'weekLabel'
+  Ux-Expand 'historyVisible' '.history-toggle' '.history-toggle'
   $boxes=Ux-Measure 'stats' @('.week-label','.week-controls','.previous-week','.current-week','.next-week','.history-date','.history-record','.record-title')
   foreach($index in @(2,3,4)){foreach($rect in @($boxes.rects[$index])){Assert-That ($rect.width -ge 44 -and $rect.height -ge 44) 'Statistics navigation keeps at least a 44px target'}}
   Assert-That (@($stats.historyRecords).Count -gt 0) 'Long synthetic execution records are visible in statistics'
@@ -178,8 +180,9 @@ function Ux-Layout{
   Ux-Shot 'profile' '.profile-section'
   Tap ".profile-section[data-section='reminders']";Ux-Trigger '.sleep-reminder' 'change' @{value=$true};$profile=Ux-Page '.sleep-reminder' 'preferences'
   Assert-That ($profile.preferences.sleepReminderEnabled) 'Reminder preferences remain editable behind their concise settings entry'
-  Tap ".profile-section[data-section='data']";$profile=Ux-Page '.sync-card' 'sync'
+  Tap '.section-data';$profile=Ux-Page '.local-backup-toggle' 'sync'
   Assert-That (-not $profile.sync.configured -and -not $profile.sync.enabled) 'Unavailable cloud stays disabled without hidden automatic activation'
+  Ux-Expand 'otherSettingsVisible' '.other-settings-toggle' '.other-settings-toggle'
   Tap ".profile-section[data-section='training']";Ux-Expand 'phaseRulesVisible' '.phase-rules-toggle' '.phase-setting'
   $profile=Ux-Page '.phase-rule' 'phaseRuleDrafts'
   Assert-That (@($profile.phaseRuleDrafts).Count -gt 0) 'Training rules remain reachable behind their explicit entry'
@@ -187,7 +190,7 @@ function Ux-Layout{
   if($Mode -eq 'Layout'){Ux-LockedDate}
   $null=Ux-Go 'pages/plans/index' '.create-schedule' 'schedules';Tap '.create-schedule';$plans=Ux-Page '#schedule-editor' 'editorVisible'
   Assert-That ($plans.editorVisible -and -not $plans.advancedVisible) 'Adding an ordinary arrangement starts with the simple form'
-  $null=Ux-Measure 'plan-editor' @('#schedule-editor','.schedule-name','.save-schedule');Ux-Shot 'plan-editor' '#schedule-editor';Tap '.close-editor'
+  $null=Ux-Measure 'plan-editor' @('#schedule-editor','.schedule-name','.wizard-next');Ux-Shot 'plan-editor' '#schedule-editor';Tap '.close-editor'
   $null=Ux-Go 'pages/today/index' '.today-jump' 'selectedDate'
   $null=Ux-Measure 'today' @('.calendar','.weekday','.today-jump');Ux-Shot 'today' '.calendar'
 }

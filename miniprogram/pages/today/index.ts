@@ -1,6 +1,6 @@
 import { getWeekdayName, DEMO_NOTICE, PlanBlock } from '../../data/template';
 import { getDayBlocks } from '../../services/plans';
-import { forDate, recordDetailsForDate, setStatus, hasAnyRecord, lastReviewKey, setLastReviewKey } from '../../services/records';
+import { recordDetailsForDate, setStatus, lastReviewKey, setLastReviewKey } from '../../services/records';
 import { getDueReminders, markReminderShown } from '../../services/preferences';
 import { STATUS_LABELS, elapsedSeconds, durationText, errorText } from '../../services/execution';
 import { TaskStatus } from '../../types/domain';
@@ -15,7 +15,7 @@ const STATE_OPTIONS = ['开始或继续执行', '标记完成', '跳过这项任
 
 Page({
   clockTimer: null as ReturnType<typeof setInterval> | null,
-  lastToday: '', lastClockMinute: '', reviewShownInSession: '',
+  lastToday: '', lastClockMinute: '', reviewShownInSession: '', reviewOpeningFor: '',
   shownReminderKeys: {} as Record<string, boolean>,
   calendarGesture: null as CalendarGesture | null,
   suppressDayTapUntil: 0,
@@ -23,6 +23,7 @@ Page({
     selectedDate: '', dayTitle: '', week: [] as any[], blocks: [] as UIBlock[], expandedBlock: '',
     isToday: true, heroCaption: '此刻的安排', heroTitle: '加载中', heroTime: '', doneLabel: '0 / 0',
     percent: 0, notice: DEMO_NOTICE, reminderText: '', loadError: '',
+    recapAvailable: false, recapToday: '', recapError: '',
     showDeferEditor: false, deferTargetId: '', deferTargetTitle: '', deferDate: '',
     restActive: false, restRecorded: false, restReason: '', restWasResumed: false,
     restEditorVisible: false, restFormDate: '', restReasonInput: '', restSaving: false, restError: ''
@@ -31,7 +32,7 @@ Page({
   onShow() {
     const today = localDateKey(new Date()); this.lastClockMinute = '';
     if (!this.data.selectedDate) this.choose(today); else this.updateClock();
-    this.showYesterdayRecap(today);
+    this.refreshRecapEntry(today);
     this.stopClock(); this.clockTimer = setInterval(() => this.updateClock(), 1000);
   },
   onHide() { this.stopClock(); this.onCalendarTouchCancel(); },
@@ -43,7 +44,7 @@ Page({
     this.lastClockMinute = clockMinute;
     if (this.lastToday && this.lastToday !== today && this.data.selectedDate === this.lastToday) this.choose(today);
     else this.refresh();
-    this.lastToday = today; this.showYesterdayRecap(today);
+    this.lastToday = today; this.refreshRecapEntry(today);
     this.checkReminders(today, minuteOfDate(now));
   },
   checkReminders(today: string, nowMinute: number) {
@@ -61,7 +62,7 @@ Page({
       if (!this.data.reminderText) this.setData({ reminderText: '提醒暂时不可用，请检查本地设置。' });
     }
   },
-  onPullDownRefresh() { this.refresh(); wx.stopPullDownRefresh(); },
+  onPullDownRefresh() { this.refresh(); this.refreshRecapEntry(localDateKey(new Date())); wx.stopPullDownRefresh(); },
   choose(date: string) {
     try { parseLocalDate(date); }
     catch (_err) { wx.showToast({ title: '日期无效，请重新选择', icon: 'none' }); return; }
@@ -134,7 +135,7 @@ Page({
       const rest = getDayRest(date);
       if (rest?.active) { this.refresh(); return; }
       this.setData({ restEditorVisible: true, restFormDate: date, restReasonInput: '', restError: '' });
-    } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
+    } catch (err) { this.setData({ restError: errorText(err) }); }
   },
   onRestReasonInput(e: any) { this.setData({ restReasonInput: String(e.detail.value), restError: '' }); },
   onCancelRest() { this.setData({ restEditorVisible: false, restError: '' }); },
@@ -156,9 +157,9 @@ Page({
   onResumeRest() {
     if (this.data.restSaving || this.data.selectedDate !== localDateKey(new Date())) return;
     try {
-      this.setData({ restSaving: true }); resumeToday(); this.refresh();
+      this.setData({ restSaving: true, restError: '' }); resumeToday(); this.refresh();
       wx.showToast({ title: '已恢复安排，需要时再手动开始', icon: 'none' });
-    } catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
+    } catch (err) { this.setData({ restError: errorText(err) }); }
     finally { this.setData({ restSaving: false }); }
   },
   executionPaused(): boolean {
@@ -170,6 +171,7 @@ Page({
   },
   onToggleBlock(e: any) {
     const id = String(e.currentTarget.dataset.id);
+    if (this.data.blocks.find(block => block.id === id)?.kind === 'fixed') return;
     this.setData({ expandedBlock: this.data.expandedBlock === id ? '' : id }); this.refresh();
   },
   onToggleTask(e: any) {
@@ -209,19 +211,56 @@ Page({
   onOpenTraining(e: any) {
     wx.navigateTo({ url: '/pages/training/index?date=' + encodeURIComponent(this.data.selectedDate) + '&blockId=' + encodeURIComponent(String(e.currentTarget.dataset.id)) });
   },
-  showYesterdayRecap(today: string) {
-    if (this.reviewShownInSession === today || lastReviewKey() === today) return;
-    const yesterday = shiftDays(today, -1); if (!hasAnyRecord(yesterday)) return;
+  refreshRecapEntry(today: string) {
     try {
-      const records = forDate(yesterday), result = progress(getDayBlocks(yesterday), records);
+      // Use the strict reader: summary helpers intentionally turn damaged storage into an empty map.
+      const available = this.reviewShownInSession !== today && lastReviewKey() !== today && Object.keys(recordDetailsForDate(shiftDays(today, -1))).length > 0;
+      if (available !== this.data.recapAvailable || today !== this.data.recapToday) {
+        this.setData({ recapAvailable: available, recapToday: today, recapError: '' });
+      }
+    } catch (err) {
+      const message = '昨日回顾暂时无法读取：' + errorText(err);
+      if (message !== this.data.recapError || today !== this.data.recapToday) {
+        this.setData({ recapAvailable: false, recapToday: today, recapError: message });
+      }
+    }
+  },
+  onOpenRecap() {
+    const today = localDateKey(new Date());
+    if (this.reviewOpeningFor) return;
+    this.refreshRecapEntry(today);
+    if (!this.data.recapAvailable) return;
+    const yesterday = shiftDays(today, -1);
+    try {
+      const details = recordDetailsForDate(yesterday), records: Record<string, TaskStatus> = Object.create(null);
+      Object.keys(details).forEach(id => { records[id] = details[id].status; });
+      const result = progress(getDayBlocks(yesterday), records);
       const values = Object.keys(records).map(id => records[id]);
-      setLastReviewKey(today); this.reviewShownInSession = today;
+      this.reviewOpeningFor = today;
+      this.setData({ recapError: '' });
       wx.showModal({ title: '昨日回顾',
         content: '昨天完成 ' + result.completed + '/' + result.total + ' 项（' + result.percent + '%）。' +
           '跳过 ' + values.filter(status => status === 'skipped').length + ' 项，中止 ' + values.filter(status => status === 'aborted').length + ' 项。' +
           (result.percent >= 80 ? '保持节奏，今天也很棒！' : '每次行动都是进步，今天继续按自己的节奏来。'),
-        showCancel: false, confirmText: '开始今天' });
-    } catch (_err) { /* An unreadable review must not be marked as successfully shown. */ }
+        showCancel: false, confirmText: '知道了',
+        success: result => {
+          this.reviewOpeningFor = '';
+          if (!result.confirm) return;
+          try {
+            // Capture the reviewed date so crossing midnight never marks the new day read.
+            setLastReviewKey(today); this.reviewShownInSession = today;
+            this.refreshRecapEntry(localDateKey(new Date()));
+          } catch (err) { this.setData({ recapError: '回顾已打开，已读状态未能保存：' + errorText(err) }); }
+        },
+        fail: () => {
+          this.reviewOpeningFor = '';
+          this.setData({ recapError: '昨日回顾未能打开，请重试。' });
+        }
+      });
+    } catch (err) {
+      this.reviewOpeningFor = '';
+      this.setData({ recapError: '昨日回顾暂时无法读取：' + errorText(err) });
+    }
   }
 });
 
