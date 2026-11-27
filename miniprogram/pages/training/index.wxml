@@ -13,22 +13,19 @@
     <view class="active-timer-heading"><text>{{isTrainingBlock ? '动作倒计时' : '步骤倒计时'}}</text><text>{{timerStatusText}}</text></view>
     <view class="active-timer-value">{{timerRemainingText}}</view>
     <view class="field-help">{{timerTargetTitle}} · 点击调整</view>
+    <view class="button-row active-timer-controls">
+      <button wx:if="{{timerState.status === 'running'}}" class="button-secondary" catchtap="onPauseTimer">暂停计时</button>
+      <button wx:if="{{timerState.status === 'paused'}}" class="button-secondary" disabled="{{restActive}}" catchtap="onResumeTimer">继续计时</button>
+    </view>
   </view>
-  <view wx:if="{{isTrainingBlock}}" class="card phase-summary">
-    <view class="phase-row"><text>当前阶段</text><picker range="{{phaseOptions}}" value="{{phaseIndex}}" bindchange="onTrainingPhaseChange"><view class="phase-picker"><text class="picker-value">{{trainingPhase || '基础'}}</text><view class="chevron" aria-hidden="true"></view></view></picker></view>
-    <view wx:if="{{phaseDescription}}" class="field-help">{{phaseDescription}}</view>
-    <view class="field-help">阶段由你选择，参考次数不会强制解锁。</view>
-  </view>
-  <view wx:if="{{isTrainingBlock}}" class="alert">
-    <view class="alert-heading">训练前请注意</view>
-    <view>{{safety}}</view>
-  </view>
+  <view wx:if="{{timerReadError && !showTimerPanel}}" class="action-safety">{{timerReadError}}</view>
+  <view wx:if="{{isTrainingBlock}}" class="safety-reminder">训练由你选择；如有不适，请停止或降低强度，并请专业人员审核。</view>
   <view class="button-row execution-controls">
     <button class="button-primary" disabled="{{restActive}}" bindtap="onStart">{{restActive ? '今日休息' : '开始执行'}}</button>
-    <button wx:if="{{isTrainingBlock && (emergencyAvailable || emergencyEnabled)}}" class="button-secondary" disabled="{{!emergencyAvailable}}" bindtap="onEmergency">{{emergencyEnabled ? '恢复常规计划' : '改用15分钟简化计划'}}</button>
+    <button wx:if="{{!restActive}}" class="stop" bindtap="onStop">{{isTrainingBlock ? '中止本次训练' : '中止本次执行'}}</button>
   </view>
+  <button wx:if="{{isTrainingBlock && (emergencyAvailable || emergencyEnabled)}}" class="button-secondary emergency-plan" disabled="{{!emergencyAvailable}}" bindtap="onEmergency">{{emergencyEnabled ? '恢复常规计划' : '改用15分钟简化计划'}}</button>
   <view wx:if="{{isTrainingBlock && emergencyEnabled}}" class="plan-hint">已选择15分钟简化计划，仍可随时停止动作。</view>
-  <view wx:if="{{isTrainingBlock && !emergencyAvailable && actions.length}}" class="plan-hint">已有执行记录的日期保留当时计划。如需切换常规或简化安排，请选择尚未执行的日期。</view>
   <view class="section-heading">{{isTrainingBlock ? '训练动作' : '执行步骤'}}</view>
   <view wx:for="{{actions}}" wx:for-item="action" wx:key="id" class="exercise card">
     <view class="exercise-top">
@@ -40,9 +37,12 @@
       </view>
       <view class="check {{action.done ? 'checked' : ''}} {{restActive ? 'execution-disabled' : ''}}" data-id="{{action.id}}" bindtap="onToggleAction" aria-role="checkbox" aria-checked="{{action.done}}" aria-disabled="{{restActive}}" aria-label="{{restActive ? '今日休息，执行已暂停' : action.done ? '取消完成' : '标记完成'}} {{action.title}}">{{action.done ? '✓' : ''}}</view>
     </view>
-    <view class="description">{{action.description}}</view>
-    <view wx:if="{{action.equipment}}" class="action-detail">器材：{{action.equipment}}</view>
     <view wx:if="{{action.safety}}" class="action-safety">注意：{{action.safety}}</view>
+    <view wx:if="{{action.feedback.discomfort}}" class="action-safety discomfort-notice">已记录不适，可停止或降低强度，无需勉强完成。{{isTrainingBlock ? '请专业人员审核。' : ''}}</view>
+    <button class="action-details-toggle" data-id="{{action.id}}" bindtap="onToggleActionDetails" aria-expanded="{{action.expanded}}" aria-label="{{action.expanded ? '收起' : '展开'}}{{action.title}}详情">{{action.expanded ? '收起详情' : '展开详情'}}</button>
+    <view wx:if="{{action.expanded}}" class="action-details">
+    <view wx:if="{{action.description}}" class="description">{{action.description}}</view>
+    <view wx:if="{{action.equipment}}" class="action-detail">器材：{{action.equipment}}</view>
     <view wx:if="{{action.searchKeyword}}" class="search" data-keyword="{{action.searchKeyword}}" bindtap="onCopyKeyword">复制示范检索词：{{action.searchKeyword}}</view>
     <view class="exercise-actions">
       <button class="button-secondary" disabled="{{restActive}}" data-id="{{action.id}}" bindtap="onActionMenu">调整状态</button>
@@ -78,8 +78,20 @@
         <button class="button-secondary" bindtap="onCancelFeedback">取消</button>
       </view>
     </view>
+    </view>
   </view>
-  <button wx:if="{{!restActive}}" class="stop" bindtap="onStop">{{isTrainingBlock ? '中止本次训练' : '中止本次执行'}}</button>
+  <view wx:if="{{isTrainingBlock}}" class="card training-info">
+    <button class="training-info-toggle" bindtap="onToggleTrainingInfo" aria-expanded="{{showTrainingInfo}}">{{showTrainingInfo ? '收起训练说明与阶段' : '训练说明与阶段'}}</button>
+    <view wx:if="{{showTrainingInfo}}">
+      <view class="phase-summary">
+        <view class="phase-row"><text>当前阶段</text><picker range="{{phaseOptions}}" value="{{phaseIndex}}" bindchange="onTrainingPhaseChange"><view class="phase-picker"><text class="picker-value">{{trainingPhase || '基础'}}</text><view class="chevron" aria-hidden="true"></view></view></picker></view>
+        <view wx:if="{{phaseDescription}}" class="field-help">{{phaseDescription}}</view>
+        <view class="field-help">阶段由你选择，参考次数不会强制解锁。</view>
+      </view>
+      <view class="alert"><view class="alert-heading">训练前请注意</view><view>{{safety}}</view></view>
+      <view wx:if="{{!emergencyAvailable && actions.length}}" class="plan-hint">已有执行记录的日期保留当时计划。如需切换常规或简化安排，请选择尚未执行的日期。</view>
+    </view>
+  </view>
   <view wx:if="{{showTimerPanel}}" class="modal-mask">
     <scroll-view class="modal-card timer-panel" scroll-y>
       <view class="editor-heading"><view class="modal-title">{{isTrainingBlock ? '动作倒计时' : '步骤倒计时'}}</view><button class="close-timer" bindtap="onCloseTimerPanel">关闭</button></view>

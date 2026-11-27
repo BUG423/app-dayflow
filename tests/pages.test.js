@@ -81,7 +81,7 @@ test('并行任务独立勾选、跨日期隔离，训练返回刷新并在页�
   assert.equal(reopened.data.doneLabel, '2 / 6');
 });
 
-test('昨日回顾仅有记录时显示，每日最多一次且不修改完成状态', () => {
+test('昨日回顾按需打开，确认已读后隐藏且不修改完成状态', () => {
   const runtime = createRuntime();
   const page = runtime.page('today');
   page.onLoad();
@@ -89,8 +89,13 @@ test('昨日回顾仅有记录时显示，每日最多一次且不修改完成�
   assert.equal(runtime.calls.modals.length, 0);
   runtime.storage.set('dayflow.records.v1', { '2026-10-30': { 'music-guitar': 'done' } });
   page.onShow();
+  assert.equal(runtime.calls.modals.length, 0);
+  assert.equal(page.data.recapAvailable, true);
+  page.onOpenRecap();
   assert.equal(runtime.calls.modals.length, 1);
   assert.match(runtime.calls.modals[0].content, /1\/9/);
+  runtime.calls.modals[0].success({ confirm: true });
+  assert.equal(page.data.recapAvailable, false);
   page.onShow();
   runtime.tick();
   assert.equal(runtime.calls.modals.length, 1);

@@ -41,7 +41,7 @@ Page({
     phaseRuleDrafts: [] as any[], sync: { enabled: false, configured: false, pending: false, conflict: false },
     syncText: '云服务尚未连接', feedbackText: '', reminderPreview: null as ReminderPreview | null,
     reminderJobs: [] as any[], reminderBusy: false,
-    expandedSection: '', phaseRulesVisible: false, phaseRulesDirty: false, recordManagementVisible: false,
+    expandedSection: '', otherSettingsVisible: false, phaseRulesVisible: false, phaseRulesDirty: false, recordManagementVisible: false,
     localBackupVisible: false, backupBusy: false, backupAction: '', backupMessage: '',
     backupExportReady: false, backupExportSummary: null as any, backupPreviewSummary: null as any,
     backupPreviewWarnings: [] as string[], backupPreviewNeedsRecheck: false,
@@ -61,7 +61,28 @@ Page({
   onToggleSection(e: any) {
     const section = String(e.currentTarget.dataset.section);
     if (!['reminders', 'training', 'data', 'about'].includes(section)) return;
+    if (this.data.backupRecoveryRequired || this.data.backupStateFailed) {
+      this.setData({ expandedSection: 'data', localBackupVisible: true }); return;
+    }
     this.setData({ expandedSection: this.data.expandedSection === section ? '' : section });
+  },
+  onOpenRecords() { wx.navigateTo({ url: '/pages/stats/index' }); },
+  onOpenDataBackup() {
+    if (this.data.backupRecoveryRequired || this.data.backupStateFailed) {
+      this.setData({ expandedSection: 'data', localBackupVisible: true }); return;
+    }
+    const open = this.data.expandedSection !== 'data';
+    this.setData({ expandedSection: open ? 'data' : '', localBackupVisible: true });
+    if (open) this.refreshLocalBackupState();
+  },
+  onToggleOtherSettings() {
+    const visible = !this.data.otherSettingsVisible;
+    this.setData({ otherSettingsVisible: visible });
+    if (this.data.backupRecoveryRequired || this.data.backupStateFailed) {
+      this.setData({ expandedSection: 'data', localBackupVisible: true });
+    } else if (!visible && ['training', 'about'].includes(this.data.expandedSection)) {
+      this.setData({ expandedSection: '' });
+    }
   },
   onTogglePhaseRules() { this.setData({ phaseRulesVisible: !this.data.phaseRulesVisible }); },
   onToggleRecordManagement() {

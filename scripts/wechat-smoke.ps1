@@ -349,11 +349,16 @@ try {
       Navigate 'navigateBack' '' 'pages/today/index'
       $returned = Get-Page '.weekday'
       Assert-That ((Record-State $returned $actionId) -ne $actionDone) 'Returning from training refreshes timeline completion'
-      foreach ($tab in @(@{ route = 'plans'; key = 'days' }, @{ route = 'stats'; key = 'days' }, @{ route = 'profile'; key = 'version' })) {
+      foreach ($tab in @(@{ route = 'plans'; key = 'days' }, @{ route = 'profile'; key = 'version' })) {
         Navigate 'switchTab' ("/pages/" + $tab.route + '/index')
         $tabPage = Get-Page ''
         Assert-That ($tabPage.Contains($tab.key)) ("Tab loads page data: " + $tab.route)
       }
+      Tap '.section-records'
+      Wait-Page 'pages/stats/index'
+      $recordsPage = Get-Page ''
+      Assert-That ($recordsPage.Contains('days')) 'Records opens from My through the non-Tab page'
+      Navigate 'navigateBack' '' 'pages/profile/index'
       Navigate 'switchTab' '/pages/today/index'
       $page = Get-Page '.weekday'
       Assert-That ($page.selectedDate -eq $today -and (Record-State $page 'music-guitar') -ne $guitarBefore) 'Today Tab retains saved task state'

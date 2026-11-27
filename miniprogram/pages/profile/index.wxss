@@ -37,7 +37,7 @@
 .reminder-job-status { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: var(--color-muted); font-size: 13px; min-height: 44px; }
 .reminder-limit, .offline-reminder-help { margin-top: 12px; }
 .profile button.data-management-toggle { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 48px; margin: 16px 0 0; padding: 10px 0; background: transparent; color: var(--color-text); font-size: 14px; text-align: left; border-top: 1px solid var(--color-border); border-radius: 0; }
-.data-management-toggle text { color: var(--color-muted); font-size: 22px; }
+.data-management-toggle text { min-width: 0; color: var(--color-muted); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
 .record-management { margin-top: 8px; padding: 12px; background: var(--color-danger-soft); border-radius: 10px; }
 .control { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 48px; color: var(--color-danger); font-size: 14px; }
 .control .section-chevron { color: var(--color-danger); }
@@ -55,6 +55,10 @@
 .profile .profile-section { min-height: 78px; gap: 12px; }
 .profile .setting-title { font-weight: 650; }
 .profile .profile-section > .chevron { margin-right: 3px; }
+.profile .other-settings-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 100%; min-height: 48px; height: auto; margin: 18px 0 12px; padding: 12px 16px; border-radius: 14px; background: transparent; color: var(--color-muted); font-size: 14px; line-height: 1.7; text-align: left; white-space: normal; }
+.profile .other-settings-toggle text { min-width: 0; overflow-wrap: anywhere; }
+.profile-section.section-records::before { background: var(--color-primary); border-color: var(--color-primary-soft); }
+.other-settings { margin-top: 12px; }
 .profile .time-setting, .profile button.phase-setting { gap: 8px; background: #F7F8F2; border-radius: 13px; padding-left: 12px; padding-right: 12px; }
 .profile .minutes-setting { border-radius: 13px; background: #FFFCF5; }
 .profile .section-content { border-top-style: dashed; }

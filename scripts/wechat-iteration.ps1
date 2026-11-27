@@ -188,7 +188,7 @@ try {
     $future=Local-DatePlus $today 7; Tap ".week-arrow[data-delta='1']"; Tap ".weekday[data-date='$future']"; Tap ".block-header[data-id='training']"; Tap ".detail-link[data-id='training']"; Wait-Page 'pages/training/index'
     Tap '.execution-controls .button-secondary'; $training=Get-Page '.exercise'; Assert-That ($training.emergencyEnabled -eq $true) 'Future unlocked date can choose the emergency plan'
     Tap '.execution-controls .button-secondary'; $training=Get-Page '.exercise'; Assert-That ($training.emergencyEnabled -eq $false) 'Emergency plan can be exited voluntarily'
-    Navigate 'switchTab' '/pages/stats/index'; Tap '.history-apply'; $stats=Get-Page ''
+    Navigate 'navigateTo' '/pages/stats/index'; Tap '.history-toggle'; Tap '.history-apply'; $stats=Get-Page ''
     Assert-That ($stats.weeklyDone -ge 2 -and $stats.trainingCompleted -ge 1 -and @($stats.historyRecords).Count -ge 3) 'Statistics use real completed leaves and retained history'
     $recordKey=$stats.historyRecords[0].recordKey; Tap ".record-events-toggle[data-id='$recordKey']"; $stats=Get-Page ''
     Assert-That (@($stats.historyRecords|Where-Object {$_.recordKey -eq $recordKey})[0].expanded -eq $true) 'History status events can be expanded from the real interface'

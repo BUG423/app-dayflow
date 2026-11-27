@@ -30,7 +30,7 @@ Page({
     showTimerPanel: false, timerSelectedId: '', timerSelectedTitle: '', timerTargetTitle: '',
     timerSecondsInput: '60', timerRemainingText: '00:00', timerStatusText: '尚未开始',
     timerState: null as TimerState | null, timerReadError: '',
-    restActive: false, restReason: ''
+    restActive: false, restReason: '', expandedActionIds: [] as string[], showTrainingInfo: false
   },
   onLoad(options: any) {
     const date = String(options.date || localDateKey(new Date())), blockId = String(options.blockId || 'training');
@@ -78,7 +78,7 @@ Page({
         restActive, restReason: rest?.reason || '', ...(restActive ? { showTimerPanel: false, showDeferEditor: false } : {}),
         emergencyEnabled: isTrainingBlock && instance.mode === 'emergency',
         emergencyAvailable: !restActive && isTrainingBlock && !instance.locked && this.data.dateKey >= localDateKey(new Date()) && !Object.keys(details).length,
-        actions: block.actions.map(action => ({ ...action, done: records[action.id] === 'done',
+        actions: block.actions.map(action => ({ ...action, expanded: this.data.expandedActionIds.includes(action.id), done: records[action.id] === 'done',
           status: records[action.id] || 'todo', statusText: restActive && (!records[action.id] || records[action.id] === 'todo') ? '今日休息' : STATUS_LABELS[records[action.id] || 'todo'],
           deferredTo: details[action.id]?.deferredTo || '', feedback: details[action.id]?.feedback,
           elapsedText: durationText(elapsedSeconds(details[action.id])), photos: photos.filter(photo => photo.targetId === action.id) })),
@@ -124,6 +124,22 @@ Page({
       const page = getCurrentPages().find(item => item.route === 'pages/today/index') as any;
       if (page && typeof page.onToday === 'function') page.onToday();
     } });
+  },
+  onToggleTrainingInfo() { this.setData({ showTrainingInfo: !this.data.showTrainingInfo }); },
+  expandAction(id: string) {
+    if (!this.data.actions.some(action => action.id === id)) return;
+    const expandedActionIds = this.data.expandedActionIds.includes(id) ? this.data.expandedActionIds : [...this.data.expandedActionIds, id];
+    this.setData({ expandedActionIds, actions: this.data.actions.map(action => action.id === id ? { ...action, expanded: true } : action) });
+  },
+  onToggleActionDetails(e: any) {
+    const id = String(e.currentTarget.dataset.id), action = this.data.actions.find(item => item.id === id);
+    if (!action) return;
+    if (!action.expanded) { this.expandAction(id); return; }
+    if (this.data.showFeedbackEditor && this.data.feedbackTargetId === id) {
+      wx.showToast({ title: '请先保存或取消正在填写的感受', icon: 'none' }); return;
+    }
+    this.setData({ expandedActionIds: this.data.expandedActionIds.filter(item => item !== id),
+      actions: this.data.actions.map(item => item.id === id ? { ...item, expanded: false } : item) });
   },
   onToggleAction(e: any) {
     if (this.executionPaused()) return;
@@ -197,6 +213,7 @@ Page({
   },
   onOpenFeedback(e: any) {
     const id = String(e.currentTarget.dataset.id), action = this.data.actions.find(item => item.id === id); if (!action) return;
+    this.expandAction(id);
     const feedback = this.activeRecords[id]?.feedback;
     this.setData({ showFeedbackEditor: true, feedbackTargetId: id, feedbackTargetTitle: action.title,
       feedbackNote: feedback?.note || '', feedbackEffort: feedback?.effort || 3, feedbackDiscomfort: feedback?.discomfort || false });
@@ -217,6 +234,7 @@ Page({
   },
   async onChoosePhoto(e: any) {
     const id = String(e.currentTarget.dataset.id); if (!this.data.actions.some(action => action.id === id)) return;
+    this.expandAction(id);
     try { await chooseAndSavePhoto(this.data.dateKey, id); this.loadBlock(); wx.showToast({ title: '照片已保存在本机', icon: 'success' }); }
     catch (err) { wx.showToast({ title: errorText(err), icon: 'none' }); }
   },
