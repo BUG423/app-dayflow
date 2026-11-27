@@ -59,7 +59,8 @@ test('严格拒绝非法延期、损坏远端事件和读取故障，不覆盖�
   inconsistent.byDate[date]['music-guitar'].status = 'doing';
   assert.throws(() => records.replaceEnvelope(inconsistent), /状态不一致/);
   assert.deepEqual(runtime.storage.get('dayflow.records.v2'), before);
-  runtime.wx.getStorageSync = () => { throw new Error('read failed'); };
+  const read = runtime.wx.getStorageSync;
+  runtime.wx.getStorageSync = key => { if (key === 'dayflow.records.v2') throw new Error('read failed'); return read(key); };
   assert.throws(() => records.setStatus(date, 'music-vocal', 'doing'), /read failed/);
   assert.deepEqual(runtime.storage.get('dayflow.records.v2'), before);
 });

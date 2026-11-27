@@ -10,6 +10,7 @@ import { AvailabilityOptions, AvailabilityResult, PlanningConflict, findSchedule
 import { getTimer } from './timer';
 import { prepareScheduleOverwrite, OverwriteRemoval } from '../utils/plan-overwrite';
 import { removeFutureOvertime } from '../utils/evening-routine';
+import { assertNoPendingLocalBackup } from './local-backup-guard';
 
 const PLAN_KEY = 'dayflow.plans.v1';
 const INSTANCE_KEY = 'dayflow.instances.v1';
@@ -17,6 +18,8 @@ const VERSIONS_KEY = 'dayflow.planVersions.v1';
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const object = (value: any) => value && typeof value === 'object' && !Array.isArray(value);
 const today = () => localDateKey(new Date());
+function writeStore(key: string, value: any): void { assertNoPendingLocalBackup(); wx.setStorageSync(key, value); }
+function removeStore(key: string): void { assertNoPendingLocalBackup(); wx.removeStorageSync(key); }
 
 function read(key: string): any {
   const value = wx.getStorageSync(key);
@@ -123,32 +126,44 @@ function freezeRecorded(template: PlanTemplate, nextTemplate?: PlanTemplate) {
     else delete saved[date]; // Only derived, unexecuted caches are invalidated.
     changed = true;
   });
-  if (changed) wx.setStorageSync(INSTANCE_KEY, saved);
+  if (changed) writeStore(INSTANCE_KEY, saved);
+}
+function projectDailyInstance(date: string, template: PlanTemplate, saved: Record<string, DailyInstance>, recorded: boolean): DailyInstance {
+  const existing = saved[date];
+  if (existing && (recorded || date < today()) && !existing.locked) return { ...clone(existing), locked: true };
+  if (existing && !existing.locked && existing.mode === 'emergency' && (existing.templateVersion !== template.version || existing.templateId !== template.id)) return rebaseEmergency(existing, template);
+  if (existing && (existing.locked || (existing.templateId === template.id && existing.templateVersion === template.version))) return clone(existing);
+  const result = build(date, date < today() || recorded ? historicalTemplate(template) : template);
+  if (recorded) result.locked = true;
+  return result;
+}
+/** Read-only representation for backup: derived history is added only to the returned value. */
+export function exportInstancesForBackup(extraDates: string[] = []): Record<string, DailyInstance> {
+  const template = getTemplate(), saved = instances(), recorded = recordedDates();
+  const dates = [...new Set(Object.keys(saved).concat(recorded, extraDates))].sort();
+  const result: Record<string, DailyInstance> = {};
+  for (const date of dates) {
+    assertDate(date);
+    const item = projectDailyInstance(date, template, saved, recorded.includes(date));
+    if (recorded.includes(date) || extraDates.includes(date)) item.locked = true;
+    result[date] = item;
+  }
+  return result;
 }
 export function getDailyInstance(date: string): DailyInstance {
+  assertNoPendingLocalBackup();
   assertDate(date);
   const template = getTemplate(), saved = instances(), existing = saved[date];
   const recorded = recordedDates().includes(date);
-  if (existing && recorded && !existing.locked) { existing.locked = true; wx.setStorageSync(INSTANCE_KEY, saved); return clone(existing); }
-  if (existing && date < today() && !existing.locked) { existing.locked = true; wx.setStorageSync(INSTANCE_KEY, saved); return clone(existing); }
-  if (existing && !existing.locked && existing.mode === 'emergency' && (existing.templateVersion !== template.version || existing.templateId !== template.id)) {
-    const rebased = rebaseEmergency(existing, template);
-    if (JSON.stringify(rebased) === JSON.stringify(existing)) return clone(existing);
-    saved[date] = rebased; wx.setStorageSync(INSTANCE_KEY, saved); return clone(saved[date]);
-  }
-  if (existing && (existing.locked || (existing.templateId === template.id && existing.templateVersion === template.version))) {
-    if (!existing.locked && date < today()) { existing.locked = true; wx.setStorageSync(INSTANCE_KEY, saved); }
-    return clone(existing);
-  }
-  const source = date < today() || recorded ? historicalTemplate(template) : template;
-  saved[date] = build(date, source);
-  if (recorded) saved[date].locked = true;
-  wx.setStorageSync(INSTANCE_KEY, saved);
+  const projected = projectDailyInstance(date, template, saved, recorded);
+  if (existing && JSON.stringify(existing) === JSON.stringify(projected)) return clone(existing);
+  saved[date] = projected;
+  writeStore(INSTANCE_KEY, saved);
   return clone(saved[date]);
 }
 export function lockDailyInstance(date: string): DailyInstance {
   const item = getDailyInstance(date);
-  if (!item.locked) { item.locked = true; const saved = instances(); saved[date] = item; wx.setStorageSync(INSTANCE_KEY, saved); }
+  if (!item.locked) { item.locked = true; const saved = instances(); saved[date] = item; writeStore(INSTANCE_KEY, saved); }
   return clone(item);
 }
 export function getDayBlocks(date: string): PlanBlock[] {
@@ -190,8 +205,8 @@ export function saveTemplate(template: PlanTemplate, expectedVersion?: number): 
   freezeRecorded(current, next);
   // Preserve the previous version before making the new one current. If any
   // earlier write fails, the active template and existing records stay intact.
-  wx.setStorageSync(VERSIONS_KEY, versions);
-  wx.setStorageSync(PLAN_KEY, next);
+  writeStore(VERSIONS_KEY, versions);
+  writeStore(PLAN_KEY, next);
   return clone(next);
 }
 export interface SchedulePreview {
@@ -340,7 +355,7 @@ export function saveScheduleOverwrite(schedule: Schedule, expectedVersion: numbe
   try { return saveTemplate(preview.template, expectedVersion); }
   catch (_error) {
     let recovered = true;
-    backup.reverse().forEach(item => { try { if (item.exists) wx.setStorageSync(item.key, item.value); else wx.removeStorageSync(item.key); } catch (_rollbackError) { recovered = false; } });
+    backup.reverse().forEach(item => { try { if (item.exists) writeStore(item.key, item.value); else removeStore(item.key); } catch (_rollbackError) { recovered = false; } });
     throw new Error(recovered ? '替换未能保存，原计划和记录已保留，请稍后重试' : '替换未完成，部分数据恢复失败，请先检查本机数据');
   }
 }
@@ -387,7 +402,7 @@ export function saveEveningRoutineUpdate(expectedVersion: number, confirmedLease
   try { return saveTemplate(preview.template, expectedVersion); }
   catch (_error) {
     let recovered = true;
-    backups.reverse().forEach(item => { try { if (item.exists) wx.setStorageSync(item.key, item.value); else wx.removeStorageSync(item.key); } catch (_rollbackError) { recovered = false; } });
+    backups.reverse().forEach(item => { try { if (item.exists) writeStore(item.key, item.value); else removeStore(item.key); } catch (_rollbackError) { recovered = false; } });
     throw new Error(recovered ? '晚间作息未能保存，原计划和记录已保留，请稍后重试' : '更新未完成，部分数据恢复失败，请先检查本机数据');
   }
 }
@@ -430,7 +445,7 @@ export function setEmergencyPlan(date: string, enabled: boolean, blockId?: strin
     return item;
   }
   if (item.locked || date < today() || recordedDates().includes(date)) throw new Error('已有执行记录或历史日程不能切换方案，请选择未执行的日期');
-  if (!enabled) { const standard = build(date, getTemplate()); const saved = instances(); saved[date] = standard; wx.setStorageSync(INSTANCE_KEY, saved); return clone(standard); }
+  if (!enabled) { const standard = build(date, getTemplate()); const saved = instances(); saved[date] = standard; writeStore(INSTANCE_KEY, saved); return clone(standard); }
   const training = item.blocks.filter(block => block.category === '训练' || block.id === 'training');
   if (!training.length) throw new Error('这一天没有可简化的训练时间块');
   if (blockId && !training.some(block => block.id === blockId)) throw new Error('所选时间块不是可简化的训练');
@@ -443,7 +458,7 @@ export function setEmergencyPlan(date: string, enabled: boolean, blockId?: strin
   ];
   const replacement: TimeBlock = { ...first, kind: 'sequence', title: '十五分钟简化训练', end: hhmm(start + 15), tasks: [{ id: 'emergency-training', title: '自主简化训练', start: first.start, end: hhmm(start + 15), actions: steps }] };
   item.blocks = item.blocks.filter(block => !training.some(t => t.id === block.id)); item.blocks.push(replacement); item.blocks.sort((a, b) => a.start.localeCompare(b.start)); item.mode = 'emergency';
-  const saved = instances(); saved[date] = item; wx.setStorageSync(INSTANCE_KEY, saved); return clone(item);
+  const saved = instances(); saved[date] = item; writeStore(INSTANCE_KEY, saved); return clone(item);
 }
 
 export function scheduleDeferredTarget(sourceDate: string, targetId: string, targetDate: string): { date: string; targetId: string; start: string; end: string } {

@@ -33,7 +33,7 @@ if($Mode -in @('Restore','Poll')){
   $script:Sequence=@(Get-ChildItem -LiteralPath $script:RunDirectory -Filter '*.log').Count
   $script:Pending=$null -ne $script:State.pendingTask -and $script:State.pendingTask.status -eq 'pending'
 }else{
-  foreach($kind in @('wechat-smoke','wechat-iteration','wechat-visual','wechat-ux','wechat-planning-wizard')){
+  foreach($kind in @('wechat-smoke','wechat-iteration','wechat-visual','wechat-ux','wechat-planning-wizard','wechat-local-backup')){
     $marker=Join-Path $script:Project "artifacts/$kind/active-run.json"
     if(Test-Path -LiteralPath $marker){$previous=Get-Content -LiteralPath $marker -Raw -Encoding utf8|ConvertFrom-Json;if($previous.pending -or $previous.restoreNeeded){throw "Recover the previous $kind run before validation."}}
   }

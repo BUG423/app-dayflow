@@ -1,4 +1,5 @@
 import { minutesOf, parseLocalDate, shiftDays } from '../utils/calendar';
+import { assertNoPendingLocalBackup, getLocalBackupCheckpoint } from './local-backup-guard';
 
 export interface PhaseRule { id: string; name: string; minSessions: number; description: string }
 export interface Preferences {
@@ -49,11 +50,13 @@ export function getPreferences(): Preferences {
   return raw === '' || raw === undefined || raw === null ? copy(defaults) : validatePreferences(raw);
 }
 export function savePreferences(patch: Partial<Preferences>): Preferences {
+  assertNoPendingLocalBackup();
   const next = validatePreferences({ ...getPreferences(), ...patch });
   wx.setStorageSync(KEY, next);
   return copy(next);
 }
 export async function requestReminderSubscription(kind: 'task' | 'sleep' = 'task'): Promise<{ status: string; accepted: number; rejected: number }> {
+  const checkpoint = getLocalBackupCheckpoint();
   if (kind !== 'task' && kind !== 'sleep') throw new Error('提醒类型无效');
   const configured = getPreferences().subscriptionTemplateIds;
   const template = configured[kind === 'task' ? 0 : 1];
@@ -63,6 +66,8 @@ export async function requestReminderSubscription(kind: 'task' | 'sleep' = 'task
   return new Promise((resolve, reject) => wx.requestSubscribeMessage({
     tmplIds: ids,
     success: (result) => {
+      try { assertNoPendingLocalBackup(checkpoint); }
+      catch (_error) { reject(new Error('本次授权已返回，本机记录刚刚恢复，请重新查看授权状态')); return; }
       const accepted = ids.filter(id => result[id] === 'accept').length;
       resolve({ status: accepted ? 'accepted' : 'rejected', accepted, rejected: ids.length - accepted });
     },
@@ -113,6 +118,7 @@ export function getDueReminders(dateKey: string, nowMinute: number, blocks: Remi
   return computeDueReminders(dateKey, nowMinute, blocks, getPreferences(), readShown(), nextDayBlocks);
 }
 export function markReminderShown(key: string): void {
+  assertNoPendingLocalBackup();
   if (typeof key !== 'string' || key.length > 240 || !/^\d{4}-\d{2}-\d{2}:(task|sleep):/.test(key)) throw new Error('提醒标识无效');
   const date = key.slice(0, 10);
   parseLocalDate(date);

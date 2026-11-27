@@ -1,4 +1,5 @@
 import { localDateKey } from '../utils/calendar';
+import { assertNoPendingLocalBackup } from './local-backup-guard';
 import { exportEnvelope } from './records';
 import { validateEnvelope } from '../utils/record-validation';
 import { getTimer } from './timer';
@@ -7,6 +8,7 @@ export { getDayRest, isRestingToday, RestDay } from './rest-day-store';
 
 const RECORDS = 'dayflow.records.v2', TIMER = 'dayflow.timer.v1';
 function commit(writes: Array<{ key: string; value: unknown }>): void {
+  assertNoPendingLocalBackup();
   const keys = wx.getStorageInfoSync().keys;
   const backups = writes.map(item => ({ key: item.key, exists: keys.includes(item.key), value: wx.getStorageSync(item.key) }));
   const attempted: number[] = [];
@@ -21,6 +23,7 @@ function commit(writes: Array<{ key: string; value: unknown }>): void {
   }
 }
 export function startRestToday(reason = ''): RestDay {
+  assertNoPendingLocalBackup();
   if (typeof reason !== 'string' || reason.length > 200) throw new Error('休息理由不能超过两百字');
   const date = localDateKey(new Date()), rests = readRestDays();
   if (rests.byDate[date]?.active) return rests.byDate[date];
@@ -45,6 +48,7 @@ export function startRestToday(reason = ''): RestDay {
   return { ...item };
 }
 export function resumeToday(): RestDay | undefined {
+  assertNoPendingLocalBackup();
   const date = localDateKey(new Date()), rests = readRestDays(), item = rests.byDate[date];
   if (!item || !item.active) return item;
   item.active = false; item.updatedAt = Date.now(); item.resumedAt = item.updatedAt;
