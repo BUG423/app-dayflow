@@ -6,7 +6,23 @@
 3. Utils：纯日期、当前时间块、完成率逻辑，可在 Node 下单元测试。
 4. Services：本地计划、快照、执行事实、偏好、媒体和可选云同步。页面经服务接口操作，不直接拼接云端用户标识或读取私密配置。
 
-## 当前晚间日程与阳光界面边界
+## 当前本机记录备份边界
+
+[本机记录备份契约](LOCAL_BACKUP_CONTRACT.md) 定义独立便携包和本机事务，不复用云payload冒充完整备份。`local-backup`服务负责格式、摘要、租约、恢复点、撤销和文件IO；页面只调用公开接口，生成、选择和发送分开，不直接写数据键。
+
+- 可携带包是`kind: dayflow-local-record-backup`、`schemaVersion: 1`，只含计划、历史版本、日快照、v2执行记录、偏好和休息记录；4 MiB UTF-8上限。照片文件/关联、账户/云配置/队列、后台任务/授权、计时运行态和恢复点均不进入包。
+- 导出是严格只读投影，使用既有验证器和旧记录来源；缺快照历史只在导出表示补齐。当前/未来未锁standard旧缓存不能无条件优先，记录日历史锁和简化方案rebase/保留沿用计划服务语义，不为了导出而写日实例或修改记录。
+- 恢复覆盖七键：plans、planVersions、instances、records v2、records v1、preferences、restDays，其中legacy v1成功时删除、撤销时恢复原存在性。只在明确确认及租约复核后写入；包、原值/存在性、日期、照片、同步与恢复点变化均使旧确认失效。不清空整个storage，不自动合并。
+- 当前或包内进行中记录不得被恢复自动继续计时，也不伪造完成/中止。当前paused/running计时、同步enabled/pending/queued/conflict/accountMismatch或损坏状态挡住写入；文件生成不触发同步。恢复时前台提醒关闭，当前订阅模板保留，不复制授权或登记/取消后台提醒。
+- 当前照片及同步恢复副本中的localPath引用需通过恢复前后实际有效的只读任务、所属Task与TimeBlock上下文比较。相同targetId或过期standard缓存不足以证明兼容；无法证明则保守拒绝，不删图、不改云文件、不静默重绑。
+- 写前持久保存恢复点和原值，七键写入、最终读回及失败回滚均独立确认。失败混合状态只能依照该恢复点可证明的过程重试原值恢复，不能当新正常备份或被after-image严格比较永久锁死；未知用户后续修改继续拒绝覆盖。
+- 恢复点使用不可变本机journal（24 MiB上限）和`dayflow.localBackup.restorePoint.v1`小manifest；包本身仍限4 MiB。journal逐字读回、manifest持久读回均成功后才能动业务。manifest为schema1、kind`dayflow-local-record-restore-manifest`，只存state（writing/restored/recovery-required）、文件路径/名称、nonce、createdAt及journalByteLength/journalChecksum；解析文件前检查UTF-8字节数和FNV-1a32 UTF-16LE损坏校验，不提供鉴权或加密。旧journal不递归扫描清理。
+- 独立无依赖的恢复门禁在pending或manifest损坏时阻止普通业务写和计划缓存生成；profile自动展开恢复入口。异步写用轻量token与进程内epoch在边界复核，防止跨恢复或ABA后旧回调继续写入；local-backup原始回滚/重试不走普通门禁，避免恢复自锁。
+- 最近一次成功恢复的撤销另经预览确认，按严格七键原值比较，包含派生缓存变化。profile刷新不能自行写这些键；之后继续使用或数据变化时，原副本保留但不自动合并覆盖。恢复点本身不会进入导出或云同步白名单。
+
+实际证据以[本轮验证报告](LOCAL_BACKUP_VALIDATION.md)为准。生成文件、受控原生回调、实际发送界面与真机分别验收；本轮不以分享用户真实备份作为验证手段。
+
+## 上一轮晚间日程与阳光界面边界
 
 [游泳后加班契约](SWIM_OVERTIME_CONTRACT.md) 定义当前v4七天先后顺序；上一轮[阳光界面契约](SUNSHINE_SCHEDULE_CONTRACT.md)的睡眠端点、重复快捷项和全站视觉保持。现有TimeBlock/Task/Action/Record/Schedule字段保持；日末结束扩展不等于增加任意跨午夜任务。
 
@@ -22,7 +38,7 @@
 
 [简化填写与今日休息契约](REST_SIMPLIFICATION_CONTRACT.md) 保留四步及时间分析，移除普通向导的特殊日期操作；已有 `Schedule.exceptions` 继续完整往返，不迁移或删除原数据。
 
-- `dayflow.restDays.v1` 是独立本机覆盖层，按设备当地日期保存休息选择与可选理由，不写模板、日快照或云 payload；查询不得创建实例。`getDayRest` 与 `isRestingToday` 统一向页面和执行服务提供状态。
+- `dayflow.restDays.v1` 是独立本机覆盖层，按设备当地日期保存休息选择与可选理由，不写模板、日快照或云 payload；查询不得创建实例。本轮只有用户主动生成的本机记录备份包含该层，不能静默发送。`getDayRest` 与 `isRestingToday` 统一向页面和执行服务提供状态。
 - `startRestToday` 代表用户主动暂停整天安排：只为今天 `doing` 的记录追加真实 `aborted` 事件，并暂停属于今天的倒计时；已完成和其他原记录不动，待办不批量写成跳过或完成。准备完整有效数据后协调写入，失败恢复各 key 的原值与存在性。
 - `resumeToday` 仅解除当天限制，不能撤销已经发生的停止事件或自动重启任务、倒计时。新的开始/继续/完成和计时操作经服务门禁，不能只靠页面按钮禁用。
 - 今日页的休息提示覆盖当前/下一执行引导，保留原时间轴可供查看；当日前台任务提醒暂停。休息不改变统计完成率的分子、分母，不宣称取消了已登记的后台订阅。

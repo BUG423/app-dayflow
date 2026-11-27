@@ -1,4 +1,5 @@
 import { getDayBlocks, lockDailyInstance } from './plans';
+import { assertNoPendingLocalBackup } from './local-backup-guard';
 import { assertExecutionAllowed } from './rest-day-store';
 import { getLegacyBlocksForDate } from '../data/legacy-template';
 import { validId, checkDate, checkStatus, checkFeedback, validateEnvelope, validateLegacyRecords } from '../utils/record-validation';
@@ -51,7 +52,7 @@ function readEnvelope(): RecordEnvelope {
   if (absent(value)) return migrateLegacy();
   validateEnvelope(value); return copy(value);
 }
-function persist(envelope: RecordEnvelope): void { validateEnvelope(envelope); wx.setStorageSync(STORE, copy(envelope)); }
+function persist(envelope: RecordEnvelope): void { assertNoPendingLocalBackup(); validateEnvelope(envelope); wx.setStorageSync(STORE, copy(envelope)); }
 export function exportEnvelope(): RecordEnvelope { return copy(readEnvelope()); }
 export function replaceEnvelope(value: RecordEnvelope): void { validateEnvelope(value); persist(value); }
 export function recordDetailsForDate(date: string): Record<string, ExecutionRecord> {
@@ -79,6 +80,7 @@ export function forDate(date: string): DateRecords {
   } catch (_err) { return {}; }
 }
 export function setStatus(date: string, targetId: string, status: TaskStatus, options: { deferredTo?: string; reason?: string } = {}): ExecutionRecord {
+  assertNoPendingLocalBackup();
   checkDate(date); checkStatus(status);
   if (status === 'doing' || status === 'done') assertExecutionAllowed(date);
   if (options.reason !== undefined && (typeof options.reason !== 'string' || options.reason.length > 200)) throw new Error('状态说明不能超过两百字');
@@ -108,6 +110,7 @@ export function setStatus(date: string, targetId: string, status: TaskStatus, op
   persist(envelope); return copy(result);
 }
 export function saveFeedback(date: string, targetId: string, feedback: TrainingFeedback): ExecutionRecord {
+  assertNoPendingLocalBackup();
   checkDate(date); checkFeedback(feedback);
   const envelope = readEnvelope(), target = locateTarget(date, targetId), previous = ownRecord(envelope, date, targetId);
   const cleaned: TrainingFeedback = { ...feedback, ...(feedback.note !== undefined ? { note: feedback.note.trim() } : {}) };
@@ -126,6 +129,8 @@ export function toggleDone(date: string, targetId: string): DateRecords {
     const entries = recordDetailsForDate(date); before = {};
     for (const id of Object.keys(entries)) before[id] = entries[id].status;
   } catch (_err) { wx.showToast({ title: '读取失败，请稍后再试', icon: 'none' }); return {}; }
+  try { assertNoPendingLocalBackup(); }
+  catch (_error) { wx.showToast({ title: '请先到“我的”完成记录恢复', icon: 'none' }); return before; }
   try { setStatus(date, targetId, before[targetId] === 'done' ? 'todo' : 'done'); }
   catch (_err) { wx.showToast({ title: '保存失败，请检查存储空间', icon: 'none' }); return before; }
   return forDate(date);
@@ -142,8 +147,9 @@ export function hasAnyRecord(date: string): boolean { return Object.keys(forDate
 export function lastReviewKey(): string {
   try { const value = wx.getStorageSync(REVIEW); return typeof value === 'string' ? value : ''; } catch (_err) { return ''; }
 }
-export function setLastReviewKey(date: string): void { checkDate(date); wx.setStorageSync(REVIEW, date); }
+export function setLastReviewKey(date: string): void { assertNoPendingLocalBackup(); checkDate(date); wx.setStorageSync(REVIEW, date); }
 export function clearRecords(): void {
+  assertNoPendingLocalBackup();
   wx.setStorageSync(STORE, { schemaVersion: 2, byDate: {} });
   wx.removeStorageSync(LEGACY); wx.removeStorageSync(REVIEW);
 }

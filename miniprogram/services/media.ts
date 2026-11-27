@@ -1,4 +1,5 @@
 import { parseLocalDate } from '../utils/calendar';
+import { assertNoPendingLocalBackup, getLocalBackupCheckpoint } from './local-backup-guard';
 import { getDayBlocks, lockDailyInstance } from './plans';
 
 export interface PhotoRecord {
@@ -30,6 +31,7 @@ export function getPhotos(date?: string, targetId?: string): PhotoRecord[] {
   return readPhotos().filter(photo => (!date || photo.dateKey === date) && (!targetId || photo.targetId === targetId));
 }
 export async function chooseAndSavePhoto(dateKey: string, targetId: string): Promise<PhotoRecord> {
+  const checkpoint = getLocalBackupCheckpoint();
   parseLocalDate(dateKey);
   if (typeof targetId !== 'string' || !targetId || targetId.length > 160) throw new Error('请选择要记录的任务');
   const before = readPhotos();
@@ -42,12 +44,14 @@ export async function chooseAndSavePhoto(dateKey: string, targetId: string): Pro
     await new Promise((resolve, reject) => wx.requirePrivacyAuthorize({
       success: resolve, fail: () => reject(new Error('未同意照片用途说明，未读取或保存任何照片'))
     }));
+    assertNoPendingLocalBackup(checkpoint);
   }
   const selection: any = await new Promise((resolve, reject) => wx.chooseMedia({
     count: 1, mediaType: ['image'], sourceType: ['album', 'camera'],
     success: resolve,
     fail: () => reject(new Error('未选择照片，任务状态没有改变'))
   }));
+  assertNoPendingLocalBackup(checkpoint);
   const file = selection.tempFiles && selection.tempFiles[0];
   if (!file || typeof file.tempFilePath !== 'string' || !file.tempFilePath ||
       (Number.isFinite(file.size) && file.size > 5 * 1024 * 1024)) throw new Error('请选择不超过五兆的图片');
@@ -59,6 +63,7 @@ export async function chooseAndSavePhoto(dateKey: string, targetId: string): Pro
     throw new Error('照片未取得持久保存路径，请重试');
   }
   try {
+    assertNoPendingLocalBackup(checkpoint);
     // A photo is execution evidence even if the user has not checked completion.
     lockDailyInstance(dateKey);
     if (!hasTarget()) throw new Error('该任务已发生变化，请重新选择');
@@ -77,6 +82,7 @@ export async function chooseAndSavePhoto(dateKey: string, targetId: string): Pro
   }
 }
 export function removePhoto(id: string): void {
+  assertNoPendingLocalBackup();
   const photos = readPhotos();
   if (!photos.some(photo => photo.id === id)) return;
   // Remove metadata first. Retained file bytes can be reclaimed through WeChat's
@@ -84,6 +90,7 @@ export function removePhoto(id: string): void {
   wx.setStorageSync(KEY, photos.filter(photo => photo.id !== id));
 }
 export function markPhotoUploaded(id: string, cloudFileID: string): PhotoRecord {
+  assertNoPendingLocalBackup();
   if (!/^cloud:\/\//.test(cloudFileID)) throw new Error('上传结果无效，本地照片已保留');
   const photos = readPhotos();
   const photo = photos.find(item => item.id === id);

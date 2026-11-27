@@ -1,4 +1,5 @@
 import { getDayBlocks } from './plans';
+import { assertNoPendingLocalBackup, getLocalBackupCheckpoint } from './local-backup-guard';
 import { getPreferences } from './preferences';
 import { getTrustedCloudContext } from './sync';
 import { localDateKey, shiftDays } from '../utils/calendar';
@@ -37,16 +38,25 @@ export function getNextReminderCandidate(kind: ReminderKind, now = new Date()): 
   return candidates.sort((a, b) => a.dueAt - b.dueAt)[0] || null;
 }
 async function call(action: string, data: any = {}): Promise<any> {
+  const checkpoint = getLocalBackupCheckpoint();
   const context = await getTrustedCloudContext({ allowReminderManagementWhenDisabled: action === 'list' || action === 'cancel' });
+  assertNoPendingLocalBackup(checkpoint);
   const response: any = await new Promise((resolve, reject) => wx.cloud.callFunction({
     name: 'dayflowReminders', config: { env: context.envId }, data: { action, ...data },
     success: resolve, fail: () => reject(new Error('后台提醒暂不可用，本地日程仍可使用'))
   }));
+  try { assertNoPendingLocalBackup(checkpoint); }
+  catch (_error) {
+    throw new Error(action === 'register' || action === 'cancel'
+      ? '本次提醒请求已返回，本机记录刚刚恢复，请重新查看云端提醒状态'
+      : '本机记录刚刚恢复，请重新查看提醒列表');
+  }
   const result = response && response.result;
   if (!result || result.ok !== true || result.accountId !== context.accountId) throw new Error('后台提醒暂不可用，请稍后重新预览');
   return result;
 }
 export async function prepareReminder(kind: ReminderKind): Promise<ReminderPreview | null> {
+  assertNoPendingLocalBackup();
   const candidate = getNextReminderCandidate(kind);
   if (!candidate) return null;
   const capability = await call('capability', { kind });
@@ -56,6 +66,7 @@ export async function prepareReminder(kind: ReminderKind): Promise<ReminderPrevi
   return { ...candidate, templateId: capability.templateId, accountId: capability.accountId, preparedAt: Date.now() };
 }
 export async function registerReminder(preview: ReminderPreview, accepted: boolean): Promise<ReminderJob> {
+  assertNoPendingLocalBackup();
   if (!accepted || !preview || !Number.isFinite(preview.preparedAt) || preview.preparedAt < 0 || preview.preparedAt > Date.now() || Date.now() - preview.preparedAt > 5 * 60000 || preview.dueAt <= Date.now() + 60000) throw new Error('本次授权或预览已失效，请重新预览');
   const current = getNextReminderCandidate(preview.kind);
   if (!current || ['targetDate','targetId','title','dateKey','time','dueAt','timezoneOffset'].some(key => current[key] !== preview[key])) throw new Error('日程或提醒时间已变化，请重新预览后授权');
@@ -65,13 +76,16 @@ export async function registerReminder(preview: ReminderPreview, accepted: boole
   return result.job;
 }
 export async function listReminders(): Promise<ReminderJob[]> {
+  const checkpoint = getLocalBackupCheckpoint();
   const result = await call('list');
+  assertNoPendingLocalBackup(checkpoint);
   if (!Array.isArray(result.jobs)) throw new Error('提醒记录暂不可用');
   // Cache is display-only; never accepted as registration or authority to send.
   wx.setStorageSync(CACHE, { accountId: result.accountId, jobs: result.jobs });
   return result.jobs;
 }
 export async function cancelReminder(id: string): Promise<ReminderJob> {
+  assertNoPendingLocalBackup();
   if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('提醒记录无效');
   return (await call('cancel', { id })).job;
 }

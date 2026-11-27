@@ -1,4 +1,5 @@
 import { getTemplate, getTemplateVersions, getSnapshotDates, validateInstances } from './plans';
+import { assertNoPendingLocalBackup, getLocalBackupCheckpoint } from './local-backup-guard';
 import { exportEnvelope, replaceEnvelope, validateEnvelope } from './records';
 import { getPreferences, validatePreferences } from './preferences';
 import { getPhotos, markPhotoUploaded, PhotoRecord, validatePhotos } from './media';
@@ -32,12 +33,13 @@ function storedState(): any {
       typeof raw.queued !== 'boolean' || typeof raw.conflict !== 'boolean') throw new Error('同步设置无法读取，原数据已保留');
   return clone(raw);
 }
-function saveState(value: any): void { wx.setStorageSync(STATE, value); }
+function saveState(value: any): void { assertNoPendingLocalBackup(); wx.setStorageSync(STATE, value); }
 export function getSyncState(): SyncState {
   const state = storedState();
   return { ...state, configured: !!state.envId && !!wx.cloud, pending: busy };
 }
 export function configureSync(config: { enabled: boolean; envId: string }): SyncState {
+  assertNoPendingLocalBackup();
   if (!config || typeof config.enabled !== 'boolean' || typeof config.envId !== 'string' ||
       (config.envId !== '' && !/^[A-Za-z0-9_-]{1,128}$/.test(config.envId))) throw new Error('云端配置无效');
   if (config.enabled && !config.envId) throw new Error('云服务尚未连接，可以继续使用本机记录');
@@ -51,15 +53,18 @@ export function configureSync(config: { enabled: boolean; envId: string }): Sync
   return getSyncState();
 }
 function initialize(state: any): void {
+  assertNoPendingLocalBackup();
   if (!state.enabled || !state.envId || !wx.cloud) throw new Error('请先选择开启已连接的云同步');
   if (initializedEnv !== state.envId) { wx.cloud.init({ env: state.envId, traceUser: false }); initializedEnv = state.envId; }
 }
 async function cloudCall(action: string, data: any, state: any): Promise<any> {
+  const checkpoint = getLocalBackupCheckpoint();
   initialize(state);
   const response: any = await new Promise((resolve, reject) => wx.cloud.callFunction({
     name: 'dayflowSync', data: { action, ...data }, config: { env: state.envId },
     success: resolve, fail: () => reject(new Error('云端暂时无法连接，本机记录仍然保留'))
   }));
+  assertNoPendingLocalBackup(checkpoint);
   const result = response && response.result;
   if (!object(result) || result.ok !== true) throw new Error('云端未完成操作，本机记录仍然保留');
   return result;
@@ -99,15 +104,18 @@ async function identity(state: any, allowManagementWhenDisabled = false): Promis
 }
 // Other optional cloud features share the same explicit consent and account boundary.
 export async function getTrustedCloudContext(options: { allowReminderManagementWhenDisabled?: boolean } = {}): Promise<{ envId: string; accountId: string }> {
+  const checkpoint = getLocalBackupCheckpoint();
   const state = storedState();
   // Explicit list/cancel remains available after sync was disabled. It neither
   // uploads historical data nor reenables sync; an existing binding is required.
   const managementOnly = options.allowReminderManagementWhenDisabled && !state.enabled && !!state.accountId;
   const trusted = await identity(state, managementOnly);
+  assertNoPendingLocalBackup(checkpoint);
   if (!trusted) throw new Error('账户已变化，请切回原账户后操作');
   return { envId: state.envId, accountId: trusted.accountId };
 }
 export async function syncNow(): Promise<SyncResult> {
+  const checkpoint = getLocalBackupCheckpoint();
   const state = storedState();
   if (!state.envId || !wx.cloud) return { status: 'unconfigured', message: '云服务尚未连接，可以继续使用本机记录' };
   if (!state.enabled) return { status: 'disabled', message: '云同步尚未开启' };
@@ -119,7 +127,9 @@ export async function syncNow(): Promise<SyncResult> {
   busy = true;
   try {
     if (!await identity(state)) return { status: 'account-mismatch', message: '账户已变化，请切回原账户后同步' };
+    assertNoPendingLocalBackup(checkpoint);
     const result = await cloudCall('push', { expectedVersion: state.version, payload }, state);
+    assertNoPendingLocalBackup(checkpoint);
     if (result.conflict === true) {
       if (!Number.isInteger(result.version) || result.version < 0) throw new Error('云端版本信息无效');
       const remote = validatePayload(result.payload);
@@ -134,11 +144,13 @@ export async function syncNow(): Promise<SyncResult> {
     saveState({ ...state, version: result.version, queued: changedDuringSync, conflict: false, accountMismatch: false, lastSyncedAt: Date.now(), lastError: '' });
     return { status: changedDuringSync ? 'queued' : 'synced', message: changedDuringSync ? '本次已同步，新修改将在下次继续同步' : '同步完成，本机记录继续保留' };
   } catch (_err) {
+    assertNoPendingLocalBackup(checkpoint);
     saveState({ ...storedState(), queued: true, lastError: '连接暂不可用，待同步内容已保存在本机' });
     return { status: 'offline', message: '连接暂不可用，待同步内容已保存在本机' };
   } finally { busy = false; }
 }
 function restorePayload(remote: SyncPayload): void {
+  assertNoPendingLocalBackup();
   validatePayload(remote);
   const original: Record<string, any> = {};
   Object.keys(keys).forEach(name => {
@@ -169,6 +181,7 @@ function restorePayload(remote: SyncPayload): void {
   }
 }
 export async function resolveSyncConflict(choice: 'local' | 'remote'): Promise<SyncResult> {
+  const checkpoint = getLocalBackupCheckpoint();
   if (choice !== 'local' && choice !== 'remote') throw new Error('请选择要使用的内容');
   if (busy) throw new Error('正在处理同步，请稍候');
   const state = storedState();
@@ -178,6 +191,7 @@ export async function resolveSyncConflict(choice: 'local' | 'remote'): Promise<S
   busy = true;
   try {
     if (!await identity(state)) return { status: 'account-mismatch', message: '账户已变化，请切回原账户后同步' };
+    assertNoPendingLocalBackup(checkpoint);
     validatePayload(conflict.local); validatePayload(conflict.remote);
     if (choice === 'remote') {
       if (JSON.stringify(capture()) !== before) throw new Error('本机内容刚刚发生变化，请重新查看两份内容后再选择');
@@ -190,9 +204,11 @@ export async function resolveSyncConflict(choice: 'local' | 'remote'): Promise<S
   return syncNow();
 }
 export async function uploadPhoto(id: string): Promise<PhotoRecord> {
+  const checkpoint = getLocalBackupCheckpoint();
   const state = storedState();
   initialize(state);
   const current = await identity(state);
+  assertNoPendingLocalBackup(checkpoint);
   if (!current) throw new Error('账户已变化，请切回原账户后上传');
   if (current.mediaEnabled !== true) throw new Error('云端照片暂不可用，本机照片仍保留');
   const photo = getPhotos().find(item => item.id === id);
@@ -202,7 +218,10 @@ export async function uploadPhoto(id: string): Promise<PhotoRecord> {
     cloudPath: current.uploadPrefix + photo.id + '.jpg', filePath: photo.localPath,
     success: resolve, fail: () => reject(new Error('上传未完成，本机照片已保留'))
   }));
+  try { assertNoPendingLocalBackup(checkpoint); }
+  catch (_error) { throw new Error('上传请求已返回，本机记录刚刚恢复，尚未更新照片关联，请检查云端结果'); }
   await cloudCall('validateMedia', { fileID: uploaded.fileID }, state);
+  assertNoPendingLocalBackup(checkpoint);
   const result = markPhotoUploaded(id, uploaded.fileID);
   wx.setStorageSync(QUEUE, capture());
   saveState({ ...storedState(), queued: true });
@@ -210,15 +229,19 @@ export async function uploadPhoto(id: string): Promise<PhotoRecord> {
 }
 export async function getPhotoPreviewPath(photo: PhotoRecord): Promise<string> {
   if (photo.localPath) return photo.localPath;
+  const checkpoint = getLocalBackupCheckpoint();
   if (!photo.cloudFileID) throw new Error('照片暂时不可用');
   const state = storedState(); initialize(state);
   const current = await identity(state);
+  assertNoPendingLocalBackup(checkpoint);
   if (!current) throw new Error('账户已变化，请切回原账户后查看');
   if (current.mediaEnabled !== true) throw new Error('云端照片暂不可用，本机照片仍保留');
   await cloudCall('validateMedia', { fileID: photo.cloudFileID }, state);
+  assertNoPendingLocalBackup(checkpoint);
   const result: any = await new Promise((resolve, reject) => wx.cloud.getTempFileURL({
     fileList: [photo.cloudFileID], success: resolve, fail: () => reject(new Error('暂时无法读取云端照片'))
   }));
+  assertNoPendingLocalBackup(checkpoint);
   const item = result.fileList && result.fileList[0];
   if (!item || !item.tempFileURL || item.status !== 0) throw new Error('暂时无法读取云端照片');
   return item.tempFileURL;

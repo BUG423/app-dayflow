@@ -61,3 +61,29 @@
 .profile .feedback-message { border-radius: 16px; }
 @media (max-width: 360px) { .profile .profile-section { min-height: 74px; gap: 9px; } }
 
+.local-backup-panel { margin-top: 12px; padding: 14px; border: 1px solid #D4E9F2; border-radius: 16px; background: var(--color-sky-soft); }
+.profile .local-backup-toggle > text { color: var(--color-text); font-size: 14px; line-height: 1.7; }
+.backup-intro, .backup-exclusions, .backup-warning { color: var(--color-text); font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.backup-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.profile .local-backup-panel button { min-height: 44px; min-width: 0; width: 100%; margin: 0; box-sizing: border-box; padding: 10px 10px; font-size: 14px; line-height: 1.6; white-space: normal; overflow-wrap: anywhere; }
+.backup-export-result, .backup-preview { margin-top: 16px; padding: 14px; border: 1px solid var(--color-border); border-radius: 14px; background: #FFFFFF; }
+.backup-section-title { font-size: 15px; line-height: 1.7; font-weight: 650; color: var(--color-text); }
+.backup-meta { color: var(--color-muted); font-size: 13px; line-height: 1.7; margin-top: 6px; overflow-wrap: anywhere; }
+.profile .backup-export-result .backup-share { margin-top: 12px; }
+.backup-summary-row { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; line-height: 1.7; }
+.backup-summary-row > text:first-child { color: var(--color-muted); }
+.backup-summary-row > text:last-child { color: var(--color-text); overflow-wrap: anywhere; min-width: 0; }
+.backup-exclusions { margin-top: 12px; color: var(--color-muted); }
+.backup-warning { margin-top: 8px; color: var(--color-warning); }
+.profile .backup-preview .backup-confirm { margin-top: 16px; }
+.profile .backup-preview .backup-recheck-preview { margin-top: 14px; }
+.profile .backup-preview .backup-cancel-preview { margin-top: 10px; }
+.profile .local-backup-panel .backup-undo { margin-top: 16px; }
+.profile .local-backup-panel .backup-state-retry { margin-top: 14px; }
+.backup-undo-help { margin-top: 10px; }
+.backup-message { margin-top: 14px; padding: 12px; border-radius: 12px; color: var(--color-primary); background: var(--color-primary-soft); font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.backup-recovery-notice { margin-top: 14px; color: var(--color-danger); font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.backup-timer-notice { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--color-sun-soft); color: var(--color-text); font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.profile .backup-timer-notice .backup-clear-timer { margin-top: 10px; }
+@media (max-width: 360px) { .local-backup-panel, .backup-export-result, .backup-preview { padding: 12px; } .backup-actions { grid-template-columns: minmax(0, 1fr); } }
+
